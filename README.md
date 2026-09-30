@@ -1,5 +1,7 @@
 # fin-docintel
 
+[![ci](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/workflows/ci.yml)
+
 **Financial Document Intelligence & Agentic Workflow Platform** — turn financial PDFs into
 classified, validated, cited and auditable data, with humans in the loop wherever the machine is
 unsure.
@@ -57,7 +59,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | AWS Bedrock (Claude + Titan embeddings), Azure OpenAI (chat + embeddings), AWS Textract | **Implemented**, unit-tested with fake chat models and stubbed clients; **not run against live cloud services** in this environment |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
-| GitHub Actions CI | **Written** and every step verified locally; not yet executed on GitHub |
+| GitHub Actions CI | **Implemented** and passing on GitHub (quality + Docker jobs) |
 | Encryption at rest, TLS, retention, SSO, rate limiting, tracing | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
 | Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
 
@@ -899,8 +901,8 @@ bumped.
    baseline). The evaluation report is uploaded as an artifact.
 2. **docker** job: build the image, start it and poll `/health`.
 
-Every CI step has been run locally with the same commands; the workflow itself has not yet run on
-GitHub. Deployment (CD) is intentionally not included. A production pipeline would push a
+Both jobs pass on GitHub; the same commands also run locally through `make check` and
+`make docker`. Deployment (CD) is intentionally not included. A production pipeline would push a
 signed image to a registry and promote it through environments behind a real-provider evaluation
 gate ([Production roadmap](#24-production-roadmap)).
 
@@ -973,7 +975,6 @@ More detail in the [architecture decision records](docs/adr).
 - Mock-mode metrics describe the pipeline on synthetic data, not model accuracy.
 - The Bedrock, Azure OpenAI and Textract paths are implemented and unit-tested with fakes and
   stubs, but have not been run against live cloud services.
-- The GitHub Actions workflow has not yet run on GitHub.
 - Processing is synchronous: there is no job queue, worker pool or back-pressure.
 - Single-tenant: no per-tenant data isolation or row-level authorisation.
 - OCR quality depends on Tesseract, and there is no layout or table model, so complex tables in

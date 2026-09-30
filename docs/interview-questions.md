@@ -935,9 +935,8 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
   `quality_gate.py`; upload the report) and `docker` (build, run, poll `/health`). Concurrency
   groups cancel superseded runs; permissions are read-only.
 - **Follow-up:** Has this pipeline run on GitHub?
-- **Follow-up answer:** Not from this environment; each command was run locally, and the Docker
-  build, run and health check were verified. I'd call that validated but not yet exercised on
-  GitHub Actions.
+- **Follow-up answer:** Yes. Both jobs pass on GitHub Actions, and the same commands run locally
+  through `make check` and `make docker`, so a failure can be reproduced without pushing.
 
 ### Q84. Why run the evaluation in CI?
 - **Concise:** To catch quality regressions like any other test failure.

@@ -134,7 +134,8 @@ retrieval) and the fact that the same harness runs unchanged on real providers (
 `.github/workflows/ci.yml` defines two jobs: **quality** (Tesseract install, lock install, ruff,
 format check, mypy, unit, integration, e2e, offline evaluation, quality gate, report artifact)
 and **docker** (build, run, health smoke test, logs). Every command in these jobs was executed
-locally and passed; the workflow has **not** run on GitHub from this environment. CD (registry
+locally and passed, and the workflow's first run on GitHub passed both jobs
+([run 36735688189](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/runs/36735688189)). CD (registry
 push, promotion, deployment) is intentionally not implemented.
 
 ## 10. Security
