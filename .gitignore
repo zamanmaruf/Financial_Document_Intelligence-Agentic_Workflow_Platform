@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Secrets - never commit credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime data (uploaded documents, databases, vector index, reports)
+data/
+reports/
+*.db
+*.sqlite
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

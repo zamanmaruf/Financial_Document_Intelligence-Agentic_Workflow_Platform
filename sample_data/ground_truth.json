@@ -1,0 +1,352 @@
+{
+  "version": "1.0.0",
+  "documents": [
+    {
+      "file": "income_statement_01_northwind.pdf",
+      "document_type": "income_statement",
+      "expected_fields": {
+        "company_name": "Northwind Traders Inc.",
+        "reporting_period": "FY2024",
+        "currency": "USD",
+        "revenue": 12450000.0,
+        "operating_expenses": 3210000.0,
+        "operating_income": 2120000.0,
+        "net_income": 1532600.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "income_statement_02_helios.pdf",
+      "document_type": "income_statement",
+      "expected_fields": {
+        "company_name": "Helios Renewables GmbH",
+        "reporting_period": "31 December 2024",
+        "currency": "EUR",
+        "revenue": 8904500.0,
+        "operating_expenses": -2450750.0,
+        "operating_income": 1351450.0,
+        "net_income": 917208.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": "unusual_formatting",
+      "notes": "Parenthesised expenses; currency only stated in the heading.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "income_statement_03_aurora.pdf",
+      "document_type": "income_statement",
+      "expected_fields": {
+        "company_name": "Aurora Health Partners LLC",
+        "reporting_period": "Q3 2024",
+        "currency": null,
+        "revenue": 4210000.0,
+        "operating_expenses": 3650000.0,
+        "operating_income": null,
+        "net_income": 412000.0
+      },
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "missing_fields",
+      "notes": "No currency anywhere (required) and no operating income.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "balance_sheet_01_northwind.pdf",
+      "document_type": "balance_sheet",
+      "expected_fields": {
+        "company_name": "Northwind Traders Inc.",
+        "reporting_period": "December 31, 2024",
+        "currency": "USD",
+        "cash": 1850000.0,
+        "total_assets": 18400000.0,
+        "total_liabilities": 7900000.0,
+        "shareholders_equity": 10500000.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "balance_sheet_02_meridian.pdf",
+      "document_type": "balance_sheet",
+      "expected_fields": {
+        "company_name": "Meridian Logistics plc",
+        "reporting_period": "30 June 2025",
+        "currency": "GBP",
+        "cash": 2340500.0,
+        "total_assets": 25612000.0,
+        "total_liabilities": 14980250.0,
+        "shareholders_equity": 10631750.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "balance_sheet_03_granite_conflict.pdf",
+      "document_type": "balance_sheet",
+      "expected_fields": {
+        "company_name": "Granite Builders Corp.",
+        "reporting_period": "March 31, 2025",
+        "currency": "USD",
+        "cash": 610000.0,
+        "total_assets": 9750000.0,
+        "total_liabilities": 4200000.0,
+        "shareholders_equity": 5550000.0
+      },
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "conflicting_figures",
+      "notes": "Total assets differs between summary (9,750,000) and detail (9,570,000).",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "invoice_01_acme.pdf",
+      "document_type": "invoice",
+      "expected_fields": {
+        "invoice_number": "INV-2025-0412",
+        "invoice_date": "2025-03-14",
+        "vendor": "Acme Office Supplies Ltd",
+        "customer": "Northwind Traders Inc.",
+        "currency": "USD",
+        "subtotal": 4850.0,
+        "tax": 388.0,
+        "amount_due": 5238.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "invoice_02_brightpath.pdf",
+      "document_type": "invoice",
+      "expected_fields": {
+        "invoice_number": "BP-77812",
+        "invoice_date": "02/05/2025",
+        "vendor": "BrightPath Consulting BV",
+        "customer": "Helios Renewables GmbH",
+        "currency": "EUR",
+        "subtotal": 12000.0,
+        "tax": 2520.0,
+        "amount_due": 14520.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": "unusual_formatting",
+      "notes": "Alternative labels, currency code inline with amounts.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "invoice_03_quickfix.pdf",
+      "document_type": "invoice",
+      "expected_fields": {
+        "invoice_number": "QF-1009",
+        "invoice_date": "2025-01-22",
+        "vendor": "QuickFix IT Services",
+        "customer": "Aurora Health Partners LLC",
+        "currency": "USD",
+        "subtotal": null,
+        "tax": null,
+        "amount_due": 1780.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": "missing_fields",
+      "notes": "No subtotal / tax breakdown (optional fields).",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "bank_statement_01_firstcoastal.pdf",
+      "document_type": "bank_statement",
+      "expected_fields": {
+        "bank_name": "First Coastal Bank",
+        "account_holder": "Northwind Traders Inc.",
+        "account_number_masked": "****5561",
+        "statement_period": "01 March 2025 - 31 March 2025",
+        "currency": "USD",
+        "opening_balance": 245300.12,
+        "total_credits": 182450.0,
+        "total_debits": 150210.55,
+        "closing_balance": 277539.57
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "bank_statement_02_harbor.pdf",
+      "document_type": "bank_statement",
+      "expected_fields": {
+        "bank_name": "Harbor Mutual Bank",
+        "account_holder": "Meridian Logistics plc",
+        "account_number_masked": "****6819",
+        "statement_period": "Q2 2025",
+        "currency": "GBP",
+        "opening_balance": 1020000.0,
+        "total_credits": 640250.0,
+        "total_debits": 702125.5,
+        "closing_balance": 958124.5
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "bank_statement_03_pinnacle.pdf",
+      "document_type": "bank_statement",
+      "expected_fields": {
+        "bank_name": null,
+        "account_holder": "Aurora Health Partners LLC",
+        "account_number_masked": "****2219",
+        "statement_period": "2025-02-01 to 2025-02-28",
+        "currency": "USD",
+        "opening_balance": 58900.0,
+        "total_credits": 120300.0,
+        "total_debits": -98400.0,
+        "closing_balance": 80800.0
+      },
+      "expected_outcome": "READY",
+      "edge_case": "unusual_formatting",
+      "notes": "Currency symbols, negative debits, no bank name.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "fund_summary_01_evergreen.pdf",
+      "document_type": "fund_summary",
+      "expected_fields": {
+        "fund_name": "Evergreen Global Equity Fund",
+        "reporting_period": "30 September 2025",
+        "currency": "USD",
+        "net_asset_value": 1245600000.0,
+        "nav_per_share": 24.87,
+        "ytd_return_pct": 11.4,
+        "management_fee_pct": 0.75
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "fund_summary_02_northstar.pdf",
+      "document_type": "fund_summary",
+      "expected_fields": {
+        "fund_name": "Northstar Fixed Income Fund",
+        "reporting_period": "H1 2025",
+        "currency": "EUR",
+        "net_asset_value": 482300000.0,
+        "nav_per_share": 102.45,
+        "ytd_return_pct": 2.1,
+        "management_fee_pct": 0.4
+      },
+      "expected_outcome": "READY",
+      "edge_case": null,
+      "notes": null,
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "fund_summary_03_summit.pdf",
+      "document_type": "fund_summary",
+      "expected_fields": {
+        "fund_name": "Summit Emerging Markets Fund",
+        "reporting_period": "Q3 2025",
+        "currency": "USD",
+        "net_asset_value": 310750000.0,
+        "nav_per_share": null,
+        "ytd_return_pct": -3.2,
+        "management_fee_pct": null
+      },
+      "expected_outcome": "READY",
+      "edge_case": "missing_fields",
+      "notes": "Negative return; NAV per share and fee not disclosed.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "edge_ambiguous_memo.pdf",
+      "document_type": "unknown",
+      "expected_fields": {},
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "ambiguous_document_type",
+      "notes": "Mentions financial terms but is not a supported financial document.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "edge_injection_invoice.pdf",
+      "document_type": "invoice",
+      "expected_fields": {
+        "invoice_number": "CF-3301",
+        "invoice_date": "2025-06-02",
+        "vendor": "Contoso Facilities LLC",
+        "customer": "Meridian Logistics plc",
+        "currency": "USD",
+        "subtotal": 9000.0,
+        "tax": 720.0,
+        "amount_due": 9720.0
+      },
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "indirect_prompt_injection",
+      "notes": "Embedded instructions targeting AI systems.",
+      "kind": "text",
+      "include_in_eval": true
+    },
+    {
+      "file": "edge_scanned_invoice.pdf",
+      "document_type": "invoice",
+      "expected_fields": {
+        "invoice_number": "LP-5520",
+        "invoice_date": "2025-04-09",
+        "vendor": "Litware Printing Co",
+        "customer": "Northwind Traders Inc.",
+        "currency": "USD",
+        "subtotal": 2600.0,
+        "tax": 208.0,
+        "amount_due": 2808.0
+      },
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "scanned_document",
+      "notes": "Image-only PDF: OCR used (review required) or OCR unavailable (review).",
+      "kind": "scanned",
+      "include_in_eval": false
+    },
+    {
+      "file": "edge_empty.pdf",
+      "document_type": "unknown",
+      "expected_fields": {},
+      "expected_outcome": "FAILED",
+      "edge_case": "empty_document",
+      "notes": null,
+      "kind": "empty",
+      "include_in_eval": false
+    },
+    {
+      "file": "edge_malformed.pdf",
+      "document_type": "unknown",
+      "expected_fields": {},
+      "expected_outcome": "UPLOAD_REJECTED",
+      "edge_case": "malformed_document",
+      "notes": null,
+      "kind": "malformed",
+      "include_in_eval": false
+    }
+  ]
+}

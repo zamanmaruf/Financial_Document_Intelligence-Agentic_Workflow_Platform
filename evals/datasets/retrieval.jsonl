@@ -1,0 +1,16 @@
+{"id": "r01", "query": "Northwind Traders net income FY2024", "target_file": "income_statement_01_northwind.pdf", "evidence": ["Net income"]}
+{"id": "r02", "query": "Helios Renewables net profit for the year", "target_file": "income_statement_02_helios.pdf", "evidence": ["Net profit"]}
+{"id": "r03", "query": "Aurora Health Partners quarterly net sales", "target_file": "income_statement_03_aurora.pdf", "evidence": ["Net sales"]}
+{"id": "r04", "query": "Northwind balance sheet total assets", "target_file": "balance_sheet_01_northwind.pdf", "evidence": ["Total assets"]}
+{"id": "r05", "query": "Meridian Logistics total equity statement of financial position", "target_file": "balance_sheet_02_meridian.pdf", "evidence": ["Total equity"]}
+{"id": "r06", "query": "Granite Builders total liabilities", "target_file": "balance_sheet_03_granite_conflict.pdf", "evidence": ["Total liabilities"]}
+{"id": "r07", "query": "Acme Office Supplies invoice amount due", "target_file": "invoice_01_acme.pdf", "evidence": ["Amount Due"]}
+{"id": "r08", "query": "BrightPath Consulting VAT on the tax invoice", "target_file": "invoice_02_brightpath.pdf", "evidence": ["VAT"]}
+{"id": "r09", "query": "QuickFix IT Services invoice amount due", "target_file": "invoice_03_quickfix.pdf", "evidence": ["Amount Due"]}
+{"id": "r10", "query": "First Coastal Bank closing balance", "target_file": "bank_statement_01_firstcoastal.pdf", "evidence": ["Closing Balance"]}
+{"id": "r11", "query": "Harbor Mutual Bank ending balance", "target_file": "bank_statement_02_harbor.pdf", "evidence": ["Ending balance"]}
+{"id": "r12", "query": "Pinnacle Credit Union withdrawals and debits", "target_file": "bank_statement_03_pinnacle.pdf", "evidence": ["Withdrawals and debits"]}
+{"id": "r13", "query": "Evergreen Global Equity Fund management fee", "target_file": "fund_summary_01_evergreen.pdf", "evidence": ["Management fee"]}
+{"id": "r14", "query": "Northstar Fixed Income Fund NAV per unit", "target_file": "fund_summary_02_northstar.pdf", "evidence": ["NAV per unit"]}
+{"id": "r15", "query": "Summit Emerging Markets Fund year to date return", "target_file": "fund_summary_03_summit.pdf", "evidence": ["Return YTD"]}
+{"id": "r16", "query": "Contoso Facilities invoice subtotal", "target_file": "edge_injection_invoice.pdf", "evidence": ["Subtotal"]}

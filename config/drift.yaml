@@ -1,0 +1,23 @@
+# AI-system drift monitoring thresholds (see app/drift/monitor.py).
+#
+# PSI (population stability index) rule of thumb: < 0.1 stable, 0.1-0.25 moderate shift,
+# > 0.25 significant shift. Rate thresholds are absolute deltas vs baseline; ratio thresholds are
+# current/baseline multipliers.
+version: "1.0.0"
+min_samples: 5
+psi:
+  warn: 0.10
+  alert: 0.25
+rate_delta:
+  review_rate: 0.15
+  human_rejection_rate: 0.10
+  human_correction_rate: 0.15
+  schema_failure_rate: 0.05
+  unsupported_answer_rate: 0.05
+  refusal_rate: 0.15
+  groundedness_mean: 0.10   # alert when mean groundedness DROPS by more than this
+  extraction_confidence_mean: 0.10
+ratio:
+  latency_p95_ms: 1.5
+  tokens_per_call: 1.5
+  cost_per_call_usd: 1.5

@@ -1,0 +1,28 @@
+# Local stack: API in mock mode with a persistent data volume.
+#   docker compose up --build
+# To use real providers, set the DOCINTEL_* variables in a local .env (never committed) and
+# uncomment env_file below. AWS credentials resolve through the standard AWS chain.
+services:
+  api:
+    build: .
+    image: fin-docintel:local
+    ports:
+      - "8000:8000"
+    environment:
+      DOCINTEL_APP_ENV: docker
+      DOCINTEL_LLM_PROVIDER: mock
+      DOCINTEL_EMBEDDING_PROVIDER: hashing
+      DOCINTEL_VECTOR_STORE: chroma
+    # env_file:
+    #   - .env
+    volumes:
+      - docintel-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  docintel-data:

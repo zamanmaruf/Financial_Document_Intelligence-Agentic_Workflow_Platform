@@ -1,0 +1,17 @@
+{
+  "run_id": "eval_a12f5e5d5a434e9e974dad781031880a",
+  "is_mock": true,
+  "llm_model": "mock-deterministic-v1",
+  "embedding_model": "hashing-lexical-512",
+  "metrics": {
+    "classification.accuracy": 1.0,
+    "extraction.normalized_match": 1.0,
+    "retrieval.hit_rate": 1.0,
+    "retrieval.mrr": 0.9583,
+    "retrieval.recall_at_k": 1.0,
+    "answers.completeness": 0.75,
+    "answers.groundedness": 1.0,
+    "answers.citation_correctness": 1.0,
+    "workflow.routing_accuracy": 1.0
+  }
+}

@@ -1,0 +1,26 @@
+# Illustrative per-1K-token prices (USD) used ONLY for cost *estimation* in logs, metrics and
+# drift reports. Prices change and vary by region/contract: verify against the provider's current
+# price list before relying on these numbers. Unknown models are costed at 0 and flagged.
+version: "2024-10"
+models:
+  anthropic.claude-3-5-sonnet-20240620-v1:0:
+    input_per_1k: 0.003
+    output_per_1k: 0.015
+  anthropic.claude-3-haiku-20240307-v1:0:
+    input_per_1k: 0.00025
+    output_per_1k: 0.00125
+  gpt-4o:
+    input_per_1k: 0.0025
+    output_per_1k: 0.01
+  gpt-4o-mini:
+    input_per_1k: 0.00015
+    output_per_1k: 0.0006
+  amazon.titan-embed-text-v2:0:
+    input_per_1k: 0.00002
+    output_per_1k: 0.0
+  text-embedding-3-small:
+    input_per_1k: 0.00002
+    output_per_1k: 0.0
+  mock-deterministic-v1:
+    input_per_1k: 0.0
+    output_per_1k: 0.0

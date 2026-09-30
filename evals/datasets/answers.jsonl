@@ -1,0 +1,16 @@
+{"id": "a01", "scope": "document", "target_file": "income_statement_01_northwind.pdf", "question": "What was the net income?", "expected_facts": ["1,532,600"], "answerable": true}
+{"id": "a02", "scope": "document", "target_file": "income_statement_02_helios.pdf", "question": "What was the operating profit?", "expected_facts": ["1,351,450"], "answerable": true}
+{"id": "a03", "scope": "document", "target_file": "balance_sheet_01_northwind.pdf", "question": "What are the total liabilities?", "expected_facts": ["7,900,000"], "answerable": true}
+{"id": "a04", "scope": "document", "target_file": "balance_sheet_02_meridian.pdf", "question": "How much cash does the company hold?", "expected_facts": ["2,340,500"], "answerable": true}
+{"id": "a05", "scope": "document", "target_file": "invoice_01_acme.pdf", "question": "What is the amount due?", "expected_facts": ["5,238.00"], "answerable": true}
+{"id": "a06", "scope": "document", "target_file": "invoice_02_brightpath.pdf", "question": "How much VAT is charged?", "expected_facts": ["2,520.00"], "answerable": true}
+{"id": "a07", "scope": "document", "target_file": "bank_statement_01_firstcoastal.pdf", "question": "What is the closing balance?", "expected_facts": ["277,539.57"], "answerable": true}
+{"id": "a08", "scope": "document", "target_file": "bank_statement_02_harbor.pdf", "question": "What were the total deposits?", "expected_facts": ["640,250.00"], "answerable": true}
+{"id": "a09", "scope": "document", "target_file": "fund_summary_01_evergreen.pdf", "question": "What is the NAV per share?", "expected_facts": ["24.87"], "answerable": true}
+{"id": "a10", "scope": "document", "target_file": "fund_summary_02_northstar.pdf", "question": "What is the annual management fee?", "expected_facts": ["0.40%"], "answerable": true}
+{"id": "a11", "scope": "corpus", "target_file": "fund_summary_03_summit.pdf", "question": "What is the YTD return of the Summit Emerging Markets Fund?", "expected_facts": ["-3.2%"], "answerable": true}
+{"id": "a12", "scope": "corpus", "target_file": "invoice_03_quickfix.pdf", "question": "What amount is due on the QuickFix IT Services invoice?", "expected_facts": ["1,780.00"], "answerable": true}
+{"id": "u01", "scope": "document", "target_file": "income_statement_01_northwind.pdf", "question": "What is the CEO's annual salary?", "expected_facts": [], "answerable": false}
+{"id": "u02", "scope": "document", "target_file": "invoice_01_acme.pdf", "question": "What is the vendor's credit rating?", "expected_facts": [], "answerable": false}
+{"id": "u03", "scope": "corpus", "target_file": null, "question": "What is the weather forecast for Lisbon tomorrow?", "expected_facts": [], "answerable": false}
+{"id": "u04", "scope": "document", "target_file": "fund_summary_01_evergreen.pdf", "question": "Which employee received the largest bonus?", "expected_facts": [], "answerable": false}

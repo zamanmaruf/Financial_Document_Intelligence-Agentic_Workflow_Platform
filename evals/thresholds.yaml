@@ -1,0 +1,41 @@
+# Quality gates enforced by scripts/quality_gate.py (and CI).
+#
+# These thresholds apply to the offline mock-mode run over the synthetic dataset. When evaluating
+# a real provider (Bedrock / Azure OpenAI), keep a separate baseline per provider+model; the
+# thresholds encode the minimum acceptable behaviour, the baseline catches regressions.
+version: "1.0.0"
+
+thresholds:
+  classification.accuracy: {min: 0.90}
+  classification.macro_f1: {min: 0.85}
+  extraction.normalized_match: {min: 0.90}
+  extraction.field_accuracy: {min: 0.90}
+  extraction.missing_field_rate: {max: 0.10}
+  extraction.hallucinated_field_rate: {max: 0.10}
+  extraction.invalid_value_rate: {max: 0.05}
+  retrieval.hit_rate: {min: 0.85}
+  retrieval.document_hit_rate: {min: 0.90}
+  retrieval.mrr: {min: 0.70}
+  retrieval.recall_at_k: {min: 0.80}
+  answers.completeness: {min: 0.70}
+  answers.groundedness: {min: 0.90}
+  answers.citation_correctness: {min: 0.75}
+  answers.unsupported_statement_rate: {max: 0.05}
+  answers.correct_refusal_rate: {min: 0.90}
+  answers.schema_validity: {min: 1.0}
+  workflow.routing_accuracy: {min: 0.90}
+
+# Metrics that must not regress by more than `tolerance` (absolute) against evals/baseline.json.
+# Direction (higher/lower is better) is taken from the threshold above.
+regression:
+  tolerance: 0.03
+  metrics:
+    - classification.accuracy
+    - extraction.normalized_match
+    - retrieval.hit_rate
+    - retrieval.mrr
+    - retrieval.recall_at_k
+    - answers.completeness
+    - answers.groundedness
+    - answers.citation_correctness
+    - workflow.routing_accuracy

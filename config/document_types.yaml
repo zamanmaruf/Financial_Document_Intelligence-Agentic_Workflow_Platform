@@ -1,0 +1,141 @@
+# Document-type registry used by the deterministic (mock) model handlers.
+#
+# * keywords: phrase -> weight, used by the rule-based mock classifier.
+# * labels:   field name -> label synonyms, used by the rule-based mock extractor.
+#
+# Field names MUST match the Pydantic schemas in app/extraction/schemas.py
+# (enforced by tests/unit/test_prompts_and_registry.py). Real LLM providers do not use this
+# file; they receive the schema descriptions through the extraction prompt.
+version: "1.0.0"
+
+document_types:
+  income_statement:
+    description: Statement of revenue, expenses and profit over a period.
+    keywords:
+      income statement: 6
+      statement of operations: 6
+      profit and loss: 6
+      statement of comprehensive income: 5
+      revenue: 2
+      total revenues: 2
+      operating expenses: 2
+      operating income: 2
+      net income: 3
+      net profit: 3
+      earnings per share: 2
+      cost of revenue: 1
+      gross profit: 2
+    labels:
+      company_name: [company, entity, reporting entity]
+      reporting_period: [period, fiscal year, for the year ended, reporting period]
+      currency: [currency, reporting currency]
+      revenue: [total revenue, total revenues, revenue, net sales, turnover]
+      operating_expenses: [total operating expenses, operating expenses, opex]
+      operating_income: [operating income, operating profit, income from operations, ebit]
+      net_income: [net income, net profit, profit for the year, net earnings]
+
+  balance_sheet:
+    description: Snapshot of assets, liabilities and equity at a date.
+    keywords:
+      balance sheet: 6
+      statement of financial position: 6
+      total assets: 3
+      total liabilities: 3
+      shareholders' equity: 3
+      shareholders equity: 3
+      total equity: 2
+      current assets: 2
+      current liabilities: 2
+      retained earnings: 1
+      cash and cash equivalents: 1
+    labels:
+      company_name: [company, entity, reporting entity]
+      reporting_period: [as of, as at, balance sheet date, reporting date, period]
+      currency: [currency, reporting currency]
+      cash: [cash and cash equivalents, cash]
+      total_assets: [total assets]
+      total_liabilities: [total liabilities]
+      shareholders_equity: [total shareholders' equity, shareholders' equity, total shareholders equity, shareholders equity, total equity]
+
+  invoice:
+    description: Request for payment issued by a vendor to a customer.
+    keywords:
+      invoice: 4
+      tax invoice: 4
+      invoice number: 4
+      invoice no: 4
+      bill to: 3
+      amount due: 3
+      balance due: 3
+      payment terms: 2
+      subtotal: 2
+      due date: 2
+      vat: 1
+      remit to: 2
+    labels:
+      invoice_number: [invoice number, invoice no, "invoice #", invoice id]
+      invoice_date: [invoice date, date of issue, issue date]
+      vendor: [vendor, from, supplier, seller, issued by]
+      customer: [bill to, customer, billed to, sold to]
+      currency: [currency]
+      subtotal: [subtotal, sub-total, net amount]
+      tax: [tax, vat, sales tax, gst]
+      amount_due: [amount due, total due, balance due, total amount due]
+
+  bank_statement:
+    description: Periodic statement of transactions on a bank account.
+    keywords:
+      bank statement: 6
+      account statement: 5
+      statement of account: 5
+      opening balance: 3
+      closing balance: 3
+      account number: 2
+      deposits: 1
+      withdrawals: 1
+      total credits: 2
+      total debits: 2
+      sort code: 2
+      routing number: 2
+      account holder: 2
+      beginning balance: 3
+      ending balance: 3
+      iban: 2
+    labels:
+      bank_name: [bank, bank name, issued by]
+      account_holder: [account holder, account name, customer name]
+      account_number_masked: [account number, account no, iban]
+      statement_period: [statement period, period]
+      currency: [currency]
+      opening_balance: [opening balance, beginning balance, balance brought forward]
+      total_credits: [total credits, total deposits, deposits and credits]
+      total_debits: [total debits, total withdrawals, withdrawals and debits]
+      closing_balance: [closing balance, ending balance, balance carried forward]
+
+  fund_summary:
+    description: Summary / factsheet of an investment fund's holdings and performance.
+    keywords:
+      fund summary: 6
+      fund factsheet: 6
+      investment report: 4
+      net asset value: 3
+      nav per share: 3
+      nav per unit: 3
+      management fee: 2
+      benchmark: 2
+      portfolio: 1
+      ytd return: 2
+      year-to-date return: 2
+      top holdings: 2
+      asset allocation: 2
+      fund manager: 2
+      total net assets: 2
+      return ytd: 2
+    labels:
+      fund_name: [fund name, fund]
+      reporting_period: [as of, reporting period, period, as at]
+      currency: [base currency, currency]
+      net_asset_value: [total net asset value, net asset value, total net assets, fund size, aum]
+      nav_per_share: [nav per share, nav per unit]
+      ytd_return_pct: [ytd return, year-to-date return, return ytd]
+      management_fee_pct: [management fee, annual management fee]
