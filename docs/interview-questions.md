@@ -1128,7 +1128,7 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
   prompts, retries, pricing and persistence to collaborators. Business logic stays out of it.
 
 ### Q102. How did you document architectural decisions?
-- **Concise:** Nine ADRs in `docs/adr/`.
+- **Concise:** Ten ADRs in `docs/adr/`.
 - **Senior:** Orchestration framework, vector store, provider abstraction, deterministic
   workflow, RAG architecture (including the chunk-size sweep), evaluation methodology, HITL
   strategy, observability and sensitive data. Each records context, decision, alternatives,

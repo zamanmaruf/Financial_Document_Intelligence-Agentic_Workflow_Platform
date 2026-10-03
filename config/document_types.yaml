@@ -31,8 +31,8 @@ document_types:
       currency: [currency, reporting currency]
       revenue: [total revenue, total revenues, revenue, net sales, turnover]
       operating_expenses: [total operating expenses, operating expenses, opex]
-      operating_income: [operating income, operating profit, income from operations, ebit]
-      net_income: [net income, net profit, profit for the year, net earnings]
+      operating_income: [operating income, operating profit, income from operations, ebit, operating loss]
+      net_income: [net income, net profit, profit for the year, net earnings, net loss]
 
   balance_sheet:
     description: Snapshot of assets, liabilities and equity at a date.
@@ -55,7 +55,7 @@ document_types:
       cash: [cash and cash equivalents, cash]
       total_assets: [total assets]
       total_liabilities: [total liabilities]
-      shareholders_equity: [total shareholders' equity, shareholders' equity, total shareholders equity, shareholders equity, total equity]
+      shareholders_equity: [total shareholders' equity, shareholders' equity, total shareholders equity, shareholders equity, total stockholders' equity, stockholders' equity, total equity]
 
   invoice:
     description: Request for payment issued by a vendor to a customer.
@@ -133,7 +133,7 @@ document_types:
       return ytd: 2
     labels:
       fund_name: [fund name, fund]
-      reporting_period: [as of, reporting period, period, as at]
+      reporting_period: [as of, reporting period, period, as at, valuation date]
       currency: [base currency, currency]
       net_asset_value: [total net asset value, net asset value, total net assets, fund size, aum]
       nav_per_share: [nav per share, nav per unit]

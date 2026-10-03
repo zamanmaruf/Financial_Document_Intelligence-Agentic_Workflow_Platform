@@ -8,8 +8,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.clock import new_id
 from app.core.text import (
+    all_numbers,
+    canonical_number,
     contains_normalized,
-    extract_numbers,
     normalize_number,
     normalize_ws,
     parse_amount,
@@ -24,7 +25,7 @@ from app.domain.models import (
     ModelInvocation,
 )
 from app.extraction.schemas import SCHEMAS, FieldKind, FieldSpec, field_specs
-from app.extraction.validation import validate_extraction
+from app.extraction.validation import INJECTED_EVIDENCE_RULE, validate_extraction
 from app.guardrails.pii import redact_text
 from app.services.model_gateway import ModelGateway
 
@@ -86,7 +87,7 @@ def coerce_field_value(kind: FieldKind, value: Any) -> Any:
 
 
 def _verify_evidence(
-    text: ExtractedText, field: FieldLLMOutput, kind: FieldKind
+    text: ExtractedText, field: FieldLLMOutput, kind: FieldKind, value: FieldValue
 ) -> tuple[bool, int | None]:
     snippet = field.evidence_snippet
     if not snippet:
@@ -94,10 +95,14 @@ def _verify_evidence(
     candidates = [p for p in text.pages if p.page_number == field.page_number] or text.pages
     for page in candidates:
         if contains_normalized(page.text, snippet):
-            # the value itself must also appear in the evidence for numeric fields
-            if kind in (FieldKind.AMOUNT, FieldKind.PERCENT) and field.raw_text:
-                raw_norm = normalize_number(field.raw_text.replace("%", ""))
-                if raw_norm is not None and raw_norm.lstrip("-") not in extract_numbers(snippet):
+            if kind in (FieldKind.AMOUNT, FieldKind.PERCENT):
+                # the returned value (not just the quoted raw text) must appear in the evidence
+                printed = all_numbers(snippet)
+                if field.raw_text:
+                    raw_norm = normalize_number(field.raw_text.replace("%", ""))
+                    if raw_norm is not None and raw_norm.lstrip("-") not in printed:
+                        return False, page.page_number
+                if isinstance(value, float) and canonical_number(value) not in printed:
                     return False, page.page_number
             return True, page.page_number
     return False, field.page_number
@@ -175,7 +180,7 @@ class EntityExtractor:
                 schema_failures.append(spec.name)
                 messages.append(f"model value {raw.value!r} failed schema validation")
 
-            verified, page = _verify_evidence(text, raw, spec.kind)
+            verified, page = _verify_evidence(text, raw, spec.kind, value)
             confidence = raw.confidence if value is not None else 0.0
             if value is not None and not verified:
                 confidence = round(confidence * UNVERIFIED_CONFIDENCE_PENALTY, 4)
@@ -255,11 +260,14 @@ class EntityExtractor:
             reasons.append(ReviewReason.MISSING_REQUIRED_FIELDS)
         if "evidence_not_found" in rules:
             reasons.append(ReviewReason.UNVERIFIED_EVIDENCE)
+        if INJECTED_EVIDENCE_RULE in rules:
+            reasons.append(ReviewReason.GUARDRAIL_TRIGGERED)
         cross_field_errors = [
             i
             for i in extraction.validation_issues
             if i.severity == Severity.ERROR
-            and i.rule not in {"required_field", "field_format", "conflicting_values"}
+            and i.rule
+            not in {"required_field", "field_format", "conflicting_values", INJECTED_EVIDENCE_RULE}
         ]
         if cross_field_errors:
             reasons.append(ReviewReason.VALIDATION_RULE_FAILED)

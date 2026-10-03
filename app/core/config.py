@@ -10,7 +10,7 @@ import json
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -112,6 +112,11 @@ class Settings(BaseSettings):
     azure_openai_api_version: str = "2024-10-21"
     azure_openai_chat_deployment: str | None = None
     azure_openai_embedding_deployment: str | None = None
+    # Reasoning deployments (GPT-5, o-series) reject temperature/seed and spend output tokens on
+    # hidden reasoning. Deployment names are arbitrary, so this cannot be inferred from the name.
+    azure_openai_reasoning_model: bool = False
+    azure_openai_reasoning_effort: Literal["minimal", "low", "medium", "high"] = "low"
+    azure_openai_reasoning_max_tokens: int = Field(default=8192, ge=256)
 
     # --- chunking / retrieval --------------------------------------------------
     chunk_size: int = Field(default=600, ge=100, le=8000)
@@ -136,6 +141,7 @@ class Settings(BaseSettings):
     review_on_insufficient_evidence: bool = True
 
     # --- security --------------------------------------------------------------
+    ui_enabled: bool = True  # serve the static operator console at /ui
     auth_enabled: bool = False
     # JSON object mapping API key -> role, e.g. {"dev-reviewer-key": "reviewer"}
     api_keys_json: SecretStr | None = None
@@ -153,6 +159,11 @@ class Settings(BaseSettings):
             raise ValueError("chunk_overlap must be smaller than chunk_size")
         if self.retrieval_strong_score <= self.retrieval_min_score:
             raise ValueError("retrieval_strong_score must be greater than retrieval_min_score")
+        if self.azure_openai_reasoning_model and self.azure_openai_api_version[:10] < "2024-12-01":
+            raise ValueError(
+                "azure_openai_reasoning_model needs DOCINTEL_AZURE_OPENAI_API_VERSION "
+                "2024-12-01-preview or newer (reasoning_effort is not accepted before that)"
+            )
         if self.auth_enabled and not self.api_key_roles():
             raise ValueError("auth_enabled requires DOCINTEL_API_KEYS_JSON with at least one key")
         return self

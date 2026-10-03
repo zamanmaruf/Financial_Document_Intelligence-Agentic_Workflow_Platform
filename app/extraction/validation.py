@@ -13,6 +13,9 @@ from datetime import datetime
 from app.domain.enums import DocumentType, Severity, ValidationStatus
 from app.domain.models import ExtractedEntity, ExtractionResult, ValidationIssue
 from app.extraction.schemas import FieldKind, field_specs
+from app.guardrails.injection import scan_for_injection
+
+INJECTED_EVIDENCE_RULE = "evidence_suspected_injection"
 
 ISO_CURRENCIES = frozenset(
     [
@@ -217,7 +220,21 @@ def validate_extraction(result: ExtractionResult, tolerance_ratio: float) -> lis
                 )
             continue
         msgs = validate_field(entity, spec.kind)
-        if msgs:
+        if entity.evidence is not None and scan_for_injection(entity.evidence.snippet).flagged:
+            # A value sourced from text that tries to instruct the model is never trusted, even
+            # when that text is genuinely in the document (so the evidence "verifies").
+            entity.validation_status = ValidationStatus.INVALID
+            entity.messages.append("evidence is text flagged as a suspected prompt injection")
+            issues.append(
+                ValidationIssue(
+                    rule=INJECTED_EVIDENCE_RULE,
+                    severity=Severity.ERROR,
+                    message=f"'{entity.name}' was taken from text flagged as a suspected "
+                    "prompt injection",
+                    fields=[entity.name],
+                )
+            )
+        elif msgs:
             entity.validation_status = ValidationStatus.INVALID
             entity.messages.extend(msgs)
             issues.append(

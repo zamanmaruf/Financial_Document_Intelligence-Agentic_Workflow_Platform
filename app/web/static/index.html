@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DocIntel Console</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">◆</span>
+      <span>DocIntel <span class="muted">Console</span></span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="documents" role="tab">Documents</button>
+      <button class="tab" data-view="reviews" role="tab">Review queue <span id="review-count" class="pill hidden"></span></button>
+      <button class="tab" data-view="corpus" role="tab">Ask all documents</button>
+    </nav>
+    <div class="status">
+      <span id="provider-badge" class="badge">connecting…</span>
+      <button id="settings-toggle" class="ghost" title="API key (only needed when auth is enabled)">Key</button>
+    </div>
+  </header>
+
+  <div id="settings" class="settings hidden">
+    <label>X-API-Key <input id="api-key" type="password" autocomplete="off" placeholder="only when DOCINTEL_AUTH_ENABLED=true"></label>
+    <span class="muted small">Kept in this browser tab only (sessionStorage).</span>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <main>
+    <section id="view-documents" class="view">
+      <aside class="sidebar">
+        <label id="dropzone" class="dropzone">
+          <input id="file-input" type="file" accept="application/pdf" hidden>
+          <strong>Upload a PDF</strong>
+          <span class="muted small">Drop a file here or click to choose</span>
+        </label>
+        <div class="sidebar-head">
+          <span>Documents</span>
+          <button id="refresh-docs" class="ghost small">Refresh</button>
+        </div>
+        <ul id="doc-list" class="doc-list"></ul>
+      </aside>
+
+      <div class="detail" id="detail">
+        <div class="empty">
+          <h2>No document selected</h2>
+          <p class="muted">Upload a PDF or pick one on the left. Sample PDFs live in <code>sample_data/pdfs/</code> (regenerate with <code>make data</code>).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-reviews" class="view hidden">
+      <div class="panel-head">
+        <h2>Human review queue</h2>
+        <select id="review-status">
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="corrected">Corrected</option>
+          <option value="">All</option>
+        </select>
+      </div>
+      <div id="review-list" class="review-list"></div>
+    </section>
+
+    <section id="view-corpus" class="view hidden">
+      <div class="panel-head"><h2>Ask across all indexed documents</h2></div>
+      <form id="corpus-form" class="ask-form">
+        <input id="corpus-question" maxlength="1000" placeholder="e.g. Which invoices are due in October 2025?" required>
+        <select id="corpus-type">
+          <option value="">Any document type</option>
+        </select>
+        <button type="submit" class="primary">Ask</button>
+      </form>
+      <div id="corpus-answer"></div>
+    </section>
+  </main>
+
+  <template id="tpl-detail">
+    <div class="detail-head">
+      <div>
+        <h2 data-f="filename"></h2>
+        <div class="meta" data-f="meta"></div>
+      </div>
+      <div class="actions">
+        <button data-action="process" class="primary">Process</button>
+      </div>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="label">Status</div><div data-f="status"></div></div>
+      <div class="card"><div class="label">Document type</div><div data-f="type"></div></div>
+      <div class="card"><div class="label">Classification confidence</div><div data-f="conf"></div></div>
+      <div class="card"><div class="label">Text extraction</div><div data-f="method"></div></div>
+    </div>
+    <div data-f="flags"></div>
+    <div class="subtabs">
+      <button class="subtab active" data-sub="fields">Extracted fields</button>
+      <button class="subtab" data-sub="ask">Ask this document</button>
+      <button class="subtab" data-sub="workflow">Workflow</button>
+      <button class="subtab" data-sub="audit">Audit trail</button>
+    </div>
+    <div class="subview" data-sub-view="fields"></div>
+    <div class="subview hidden" data-sub-view="ask">
+      <form class="ask-form" data-action="ask">
+        <input name="question" maxlength="1000" placeholder="e.g. What is the amount due?" required>
+        <button type="submit" class="primary">Ask</button>
+      </form>
+      <div data-f="answer"></div>
+    </div>
+    <div class="subview hidden" data-sub-view="workflow"></div>
+    <div class="subview hidden" data-sub-view="audit"></div>
+  </template>
+</body>
+</html>

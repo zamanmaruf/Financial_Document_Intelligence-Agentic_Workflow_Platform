@@ -14,3 +14,14 @@
 {"id": "u02", "scope": "document", "target_file": "invoice_01_acme.pdf", "question": "What is the vendor's credit rating?", "expected_facts": [], "answerable": false}
 {"id": "u03", "scope": "corpus", "target_file": null, "question": "What is the weather forecast for Lisbon tomorrow?", "expected_facts": [], "answerable": false}
 {"id": "u04", "scope": "document", "target_file": "fund_summary_01_evergreen.pdf", "question": "Which employee received the largest bonus?", "expected_facts": [], "answerable": false}
+{"id": "a13", "scope": "document", "target_file": "income_statement_04_contoso_comparative.pdf", "question": "What was revenue in FY2025?", "expected_facts": ["15,200,000"], "answerable": true}
+{"id": "a14", "scope": "document", "target_file": "income_statement_05_fabrikam_loss.pdf", "question": "What was the net loss?", "expected_facts": ["1,204,000"], "answerable": true}
+{"id": "a15", "scope": "document", "target_file": "balance_sheet_04_litware_multipage.pdf", "question": "What is total stockholders' equity?", "expected_facts": ["17,250,000"], "answerable": true}
+{"id": "a16", "scope": "document", "target_file": "invoice_05_wingtip_european.pdf", "question": "What is the amount due?", "expected_facts": ["12.435,50"], "answerable": true}
+{"id": "a17", "scope": "document", "target_file": "invoice_04_fourthcoffee_partial.pdf", "question": "What balance is still due?", "expected_facts": ["2,113.25"], "answerable": true}
+{"id": "a18", "scope": "document", "target_file": "bank_statement_05_contoso_twopage.pdf", "question": "What is the balance carried forward?", "expected_facts": ["11,817.65"], "answerable": true}
+{"id": "a19", "scope": "document", "target_file": "fund_summary_04_proseware_keyfacts.pdf", "question": "What is the ongoing charges figure?", "expected_facts": ["0.62%"], "answerable": true}
+{"id": "a20", "scope": "corpus", "target_file": "bank_statement_04_woodgrove_unreconciled.pdf", "question": "What is the closing balance on the Woodgrove Bank statement?", "expected_facts": ["67,050.00"], "answerable": true}
+{"id": "u05", "scope": "document", "target_file": "income_statement_04_contoso_comparative.pdf", "question": "What dividend per share was declared?", "expected_facts": [], "answerable": false}
+{"id": "u06", "scope": "document", "target_file": "bank_statement_05_contoso_twopage.pdf", "question": "What is the account holder's home address?", "expected_facts": [], "answerable": false}
+{"id": "u07", "scope": "document", "target_file": "fund_summary_04_proseware_keyfacts.pdf", "question": "Who is the fund manager?", "expected_facts": [], "answerable": false}

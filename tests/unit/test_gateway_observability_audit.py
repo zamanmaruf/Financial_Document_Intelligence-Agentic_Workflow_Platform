@@ -78,7 +78,7 @@ class TestModelGateway:
         inv = sink.saved[0]
         assert inv.success and inv.retry_count == 0
         assert inv.prompt_name == "classification.document_type"
-        assert inv.prompt_version == "1.0.0"
+        assert inv.prompt_version == "1.1.0"
         assert inv.prompt_hash and inv.is_mock
         assert inv.estimated_cost_usd == 0.0
 
@@ -143,7 +143,14 @@ class TestModelGateway:
 
     @pytest.mark.parametrize(
         "raw",
-        ['{"a": 1}', 'Here you go:\n```json\n{"a": 1}\n```', 'prefix {"a": 1} suffix'],
+        [
+            '{"a": 1}',
+            'Here you go:\n```json\n{"a": 1}\n```',
+            'prefix {"a": 1} suffix',
+            # extra closing brace, seen from gpt-4.1-mini on a live run
+            '{"a": 1}}',
+            '{"a": 1}\n\nLet me know if you need anything else. {"b": 2}',
+        ],
     )
     def test_extract_json_object(self, raw: str) -> None:
         assert extract_json_object(raw) == {"a": 1}

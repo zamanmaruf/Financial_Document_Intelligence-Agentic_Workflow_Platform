@@ -17,6 +17,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import DocIntelError
 from app.observability.logging import configure_logging, log_event, request_id_var
 from app.services.container import Container, build_container
+from app.web import UI_SECURITY_HEADERS, mount_ui
 
 logger = logging.getLogger("app.api")
 
@@ -74,6 +75,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
             response = await call_next(request)
             status_code = response.status_code
             response.headers["X-Request-ID"] = request_id
+            if request.url.path.startswith("/ui"):
+                response.headers.update(UI_SECURITY_HEADERS)
             return response
         finally:
             elapsed = round((time.perf_counter() - started) * 1000, 3)
@@ -109,6 +112,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     app.include_router(documents.router)
     app.include_router(reviews.router)
     app.include_router(evaluations.router)
+    if settings.ui_enabled:
+        mount_ui(app)
     return app
 
 

@@ -30,7 +30,8 @@ class TestPromptRegistry:
 
     def test_active_versions_match_what_get_resolves(self, prompts: PromptRegistry) -> None:
         active = prompts.active_versions()
-        assert active["extraction.financial_entities"] == "1.1.0"
+        assert active["extraction.financial_entities"] == "1.2.0"
+        assert active["classification.document_type"] == "1.1.0"
         for name, version in active.items():
             assert prompts.get(name).version == version
 

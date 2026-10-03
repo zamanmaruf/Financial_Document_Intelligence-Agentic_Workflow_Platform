@@ -125,7 +125,12 @@ class BedrockClaudeProvider(LangChainChatProvider):
 
 
 class AzureOpenAIProvider(LangChainChatProvider):
-    """Azure OpenAI chat deployment."""
+    """Azure OpenAI chat deployment.
+
+    Standard chat models get ``temperature`` and a fixed ``seed``. Reasoning models (GPT-5,
+    o-series) reject both, so with ``reasoning_effort`` set they are omitted and the token budget
+    is sent as ``max_completion_tokens``, which also covers the hidden reasoning tokens.
+    """
 
     def __init__(
         self,
@@ -137,6 +142,7 @@ class AzureOpenAIProvider(LangChainChatProvider):
         max_tokens: int,
         timeout_s: float,
         chat_model: BaseChatModel | None = None,
+        reasoning_effort: str | None = None,
     ) -> None:
         if chat_model is None:
             if not endpoint or not api_key or not deployment:
@@ -144,17 +150,43 @@ class AzureOpenAIProvider(LangChainChatProvider):
                     "Azure OpenAI requires DOCINTEL_AZURE_OPENAI_ENDPOINT, "
                     "DOCINTEL_AZURE_OPENAI_API_KEY and DOCINTEL_AZURE_OPENAI_CHAT_DEPLOYMENT"
                 )
-            from langchain_openai import AzureChatOpenAI
-
-            chat_model = AzureChatOpenAI(
-                azure_endpoint=endpoint,
+            chat_model = build_azure_chat_model(
+                endpoint=endpoint,
                 api_key=api_key,
                 api_version=api_version,
-                azure_deployment=deployment,
+                deployment=deployment,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                timeout=timeout_s,
-                max_retries=0,
-                seed=0,
+                timeout_s=timeout_s,
+                reasoning_effort=reasoning_effort,
             )
         super().__init__(chat_model, provider_name="azure_openai", model_name=deployment or "azure")
+
+
+def build_azure_chat_model(
+    endpoint: str,
+    api_key: str,
+    api_version: str,
+    deployment: str,
+    temperature: float,
+    max_tokens: int,
+    timeout_s: float,
+    reasoning_effort: str | None,
+) -> BaseChatModel:
+    from langchain_openai import AzureChatOpenAI
+
+    sampling: dict[str, Any] = (
+        {"reasoning_effort": reasoning_effort}
+        if reasoning_effort
+        else {"temperature": temperature, "seed": 0}
+    )
+    return AzureChatOpenAI(
+        azure_endpoint=endpoint,
+        api_key=api_key,
+        api_version=api_version,
+        azure_deployment=deployment,
+        max_tokens=max_tokens,
+        timeout=timeout_s,
+        max_retries=0,
+        **sampling,
+    )

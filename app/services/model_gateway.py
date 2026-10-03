@@ -50,17 +50,22 @@ class GatewayResult[T: BaseModel]:
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
-    """Parse the first JSON object in ``text`` (tolerates markdown fences / leading prose)."""
+    """Parse the first complete JSON object in ``text``.
+
+    Tolerates markdown fences, leading prose and trailing junk after the object (models
+    occasionally emit an extra closing brace or a sign-off line).
+    """
     candidates: list[str] = []
     fenced = _FENCE_RE.search(text)
     if fenced:
         candidates.append(fenced.group(1))
-    start, end = text.find("{"), text.rfind("}")
-    if start != -1 and end > start:
-        candidates.append(text[start : end + 1])
+    start = text.find("{")
+    if start != -1:
+        candidates.append(text[start:])
+    decoder = json.JSONDecoder()
     for cand in candidates:
         try:
-            parsed = json.loads(cand)
+            parsed, _ = decoder.raw_decode(cand.lstrip())
         except json.JSONDecodeError:
             continue
         if isinstance(parsed, dict):

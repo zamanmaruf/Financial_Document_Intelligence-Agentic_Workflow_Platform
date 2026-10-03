@@ -14,3 +14,11 @@
 {"id": "r14", "query": "Northstar Fixed Income Fund NAV per unit", "target_file": "fund_summary_02_northstar.pdf", "evidence": ["NAV per unit"]}
 {"id": "r15", "query": "Summit Emerging Markets Fund year to date return", "target_file": "fund_summary_03_summit.pdf", "evidence": ["Return YTD"]}
 {"id": "r16", "query": "Contoso Facilities invoice subtotal", "target_file": "edge_injection_invoice.pdf", "evidence": ["Subtotal"]}
+{"id": "r17", "query": "Contoso Pharmaceuticals revenue FY2025", "target_file": "income_statement_04_contoso_comparative.pdf", "evidence": ["Revenue"]}
+{"id": "r18", "query": "Fabrikam Robotics net loss", "target_file": "income_statement_05_fabrikam_loss.pdf", "evidence": ["Net loss"]}
+{"id": "r19", "query": "Litware Media total stockholders' equity", "target_file": "balance_sheet_04_litware_multipage.pdf", "evidence": ["Total stockholders' equity"]}
+{"id": "r20", "query": "Fourth Coffee invoice balance due", "target_file": "invoice_04_fourthcoffee_partial.pdf", "evidence": ["Balance due"]}
+{"id": "r21", "query": "Wingtip Toys invoice VAT", "target_file": "invoice_05_wingtip_european.pdf", "evidence": ["VAT 19%"]}
+{"id": "r22", "query": "Woodgrove Bank closing balance", "target_file": "bank_statement_04_woodgrove_unreconciled.pdf", "evidence": ["Closing Balance"]}
+{"id": "r23", "query": "Contoso Bank balance carried forward", "target_file": "bank_statement_05_contoso_twopage.pdf", "evidence": ["Balance carried forward"]}
+{"id": "r24", "query": "Proseware Balanced Income Fund ongoing charges", "target_file": "fund_summary_04_proseware_keyfacts.pdf", "evidence": ["Ongoing charges figure"]}

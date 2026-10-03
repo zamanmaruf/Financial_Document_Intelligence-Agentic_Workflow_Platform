@@ -77,9 +77,11 @@ STOPWORDS = frozenset(
 _WS_RE = re.compile(r"\s+")
 _DOT_LEADER_RE = re.compile(r"\.{2,}")
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:[.,][0-9]+)*%?", re.IGNORECASE)
-_NUMBER_RE = re.compile(r"(?<![\w.])[-(]?[$€£]?\s?\d[\d,]*(?:\.\d+)?\)?%?")
+_NUMBER_RE = re.compile(r"(?<![\w.,])[-(]?[$€£]?\s?\d(?:[\d,.]*\d)?\)?%?")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])|\n+")
-_AMOUNT_RE = re.compile(r"\(?-?\s?[$€£]?\s?\d[\d,]*(?:\.\d+)?\)?")
+_AMOUNT_RE = re.compile(r"\(?-?\s?[$€£]?\s?\d(?:[\d,.]*\d)?\)?")
+_DOT_THOUSANDS_RE = re.compile(r"\d{1,3}(?:\.\d{3}){2,}")  # 1.234.567
+_DECIMAL_COMMA_RE = re.compile(r"\d+,\d{1,2}")  # 12,5 / 1234,56
 
 
 def normalize_ws(text: str) -> str:
@@ -91,14 +93,35 @@ def clean_line(text: str) -> str:
     return normalize_ws(_DOT_LEADER_RE.sub(" ", text))
 
 
+def _unify_separators(s: str) -> str:
+    """Rewrite thousands/decimal separators to the '1234.56' form.
+
+    Both separators present: the right-most one is the decimal mark ('1.234,56' and '1,234.56').
+    Comma only: decimal when followed by 1-2 digits ('12,5'), otherwise thousands ('1,234').
+    Dot only: thousands when grouped more than once ('1.234.567'); a single '1.234' stays a
+    decimal because that reading is far more common in English-language documents.
+    """
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):
+            return s.replace(".", "").replace(",", ".")
+        return s.replace(",", "")
+    if "," in s:
+        return s.replace(",", ".") if _DECIMAL_COMMA_RE.fullmatch(s) else s.replace(",", "")
+    if _DOT_THOUSANDS_RE.fullmatch(s):
+        return s.replace(".", "")
+    return s
+
+
 def normalize_number(raw: str) -> str | None:
-    """Canonical string form of a number for comparison: '4,350,000.00' -> '4350000'."""
+    """Canonical string form of a number for comparison: '4,350,000.00' / '4.350.000,00' ->
+    '4350000'."""
     s = raw.strip().replace("$", "").replace("€", "").replace("£", "").replace(" ", "")
     negative = s.startswith("(") and s.endswith(")")
-    s = s.strip("()%").replace(",", "")
+    s = s.strip("()%")
     if s.startswith("-"):
         negative = True
         s = s[1:]
+    s = _unify_separators(s)
     if not s or not re.fullmatch(r"\d+(?:\.\d+)?", s):
         return None
     integer, _, fraction = s.partition(".")
@@ -108,17 +131,24 @@ def normalize_number(raw: str) -> str | None:
     return f"-{s}" if negative and s != "0" else s
 
 
-def extract_numbers(text: str) -> list[str]:
-    """All numbers in ``text`` in canonical form, excluding bare single digits (list markers)."""
+def all_numbers(text: str) -> list[str]:
+    """Every number in ``text`` in canonical unsigned form ('(1,204,000)' -> '1204000')."""
     out: list[str] = []
     for match in _NUMBER_RE.finditer(text):
         norm = normalize_number(match.group(0))
-        if norm is None:
-            continue
-        if len(norm.lstrip("-").replace(".", "")) < 2:
-            continue
-        out.append(norm.lstrip("-"))
+        if norm is not None:
+            out.append(norm.lstrip("-"))
     return out
+
+
+def extract_numbers(text: str) -> list[str]:
+    """All numbers in ``text`` in canonical form, excluding bare single digits (list markers)."""
+    return [n for n in all_numbers(text) if len(n.replace(".", "")) >= 2]
+
+
+def canonical_number(value: float) -> str | None:
+    """Canonical unsigned form of a numeric value, comparable with ``all_numbers`` output."""
+    return normalize_number(f"{abs(value):.6f}")
 
 
 def parse_amount(text: str) -> tuple[float, str] | None:

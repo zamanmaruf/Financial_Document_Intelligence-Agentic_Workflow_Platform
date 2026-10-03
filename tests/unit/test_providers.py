@@ -10,15 +10,22 @@ from typing import Any
 
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import SecretStr
 
+from app.core.config import LLMProviderName, Settings
 from app.core.errors import InvalidDocumentError, ProviderConfigurationError, ProviderError
 from app.core.registry import DocumentTypeRegistry
 from app.domain.enums import DocumentType, TextExtractionMethod
 from app.domain.models import Chunk, ExtractedText, PageText
 from app.providers.embeddings.hashing import HashingEmbeddingProvider
+from app.providers.factory import build_llm_provider
 from app.providers.llm.base import LLMRequest
-from app.providers.llm.langchain_chat import AzureOpenAIProvider, BedrockClaudeProvider
+from app.providers.llm.langchain_chat import (
+    AzureOpenAIProvider,
+    BedrockClaudeProvider,
+    build_azure_chat_model,
+)
 from app.providers.llm.mock import MockLLMProvider
 from app.providers.llm.mock_handlers import default_handlers
 from app.providers.storage.local import LocalDocumentStore
@@ -122,6 +129,68 @@ class TestLangChainAdapters:
         )
         assert bedrock.model_name.startswith("anthropic.")
         assert azure.provider_name == "azure_openai"
+
+
+def _azure_payload(**overrides: Any) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "endpoint": "https://example.openai.azure.com",
+        "api_key": "not-a-real-key",
+        "api_version": "2025-04-01-preview",
+        "deployment": "any-deployment-name",
+        "temperature": 0.0,
+        "max_tokens": 1024,
+        "timeout_s": 5,
+        "reasoning_effort": None,
+    }
+    kwargs.update(overrides)
+    model = build_azure_chat_model(**kwargs)
+    payload: dict[str, Any] = model._get_request_payload([HumanMessage("hi")])  # type: ignore[attr-defined]
+    payload.pop("messages")
+    return payload
+
+
+class TestAzureRequestPayload:
+    """Inspects the request body the real SDK client would send (no network)."""
+
+    def test_standard_model_is_deterministic(self) -> None:
+        payload = _azure_payload()
+        assert payload["temperature"] == 0.0
+        assert payload["seed"] == 0
+        assert payload["max_completion_tokens"] == 1024
+        assert "reasoning_effort" not in payload
+
+    def test_reasoning_model_omits_sampling_params(self) -> None:
+        payload = _azure_payload(reasoning_effort="low", max_tokens=8192)
+        assert "temperature" not in payload
+        assert "seed" not in payload
+        assert payload["reasoning_effort"] == "low"
+        assert payload["max_completion_tokens"] == 8192
+
+    def test_settings_select_reasoning_budget_and_effort(self) -> None:
+        settings = Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            llm_provider=LLMProviderName.AZURE_OPENAI,
+            azure_openai_endpoint="https://example.openai.azure.com",
+            azure_openai_api_key=SecretStr("not-a-real-key"),
+            azure_openai_api_version="2025-04-01-preview",
+            azure_openai_chat_deployment="gpt5-deploy",
+            azure_openai_reasoning_model=True,
+            azure_openai_reasoning_effort="minimal",
+        )
+        provider = build_llm_provider(settings, DocumentTypeRegistry.load(ROOT / "config"))
+        assert isinstance(provider, AzureOpenAIProvider)
+        chat: Any = provider._chat_model
+        assert chat.reasoning_effort == "minimal"
+        assert chat.max_tokens == settings.azure_openai_reasoning_max_tokens
+        assert chat.temperature is None
+
+    def test_reasoning_rejects_old_api_version(self) -> None:
+        with pytest.raises(ValueError, match="2024-12-01-preview"):
+            Settings(
+                _env_file=None,  # type: ignore[call-arg]
+                azure_openai_reasoning_model=True,
+                azure_openai_api_version="2024-10-21",
+            )
 
 
 class TestMockProvider:

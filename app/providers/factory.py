@@ -44,14 +44,20 @@ def build_llm_provider(settings: Settings, registry: DocumentTypeRegistry) -> LL
             )
         case LLMProviderName.AZURE_OPENAI:
             key = settings.azure_openai_api_key
+            reasoning = settings.azure_openai_reasoning_model
             return AzureOpenAIProvider(
                 endpoint=settings.azure_openai_endpoint,
                 api_key=key.get_secret_value() if key else None,
                 api_version=settings.azure_openai_api_version,
                 deployment=settings.azure_openai_chat_deployment,
                 temperature=settings.llm_temperature,
-                max_tokens=settings.llm_max_tokens,
+                max_tokens=(
+                    settings.azure_openai_reasoning_max_tokens
+                    if reasoning
+                    else settings.llm_max_tokens
+                ),
                 timeout_s=settings.llm_timeout_s,
+                reasoning_effort=settings.azure_openai_reasoning_effort if reasoning else None,
             )
 
 

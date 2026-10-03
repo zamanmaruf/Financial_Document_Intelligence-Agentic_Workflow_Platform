@@ -84,10 +84,12 @@ def make_classification_handler(registry: DocumentTypeRegistry) -> MockHandler:
 
 
 def _label_regex(label: str) -> re.Pattern[str]:
-    # label, optional parenthetical, then an explicit separator: colon, '#', dot leaders or a
-    # wide column gap. The separator requirement avoids 'Fund Manager' matching label 'fund'.
+    # label, optional parenthetical or rate ('VAT (21%)', 'VAT 19%'), then an explicit separator:
+    # colon, '#', dot leaders or a wide column gap. The separator requirement avoids
+    # 'Fund Manager' matching label 'fund'.
     return re.compile(
-        rf"^\W*{re.escape(label)}\.?(?:\s*\([^)]*\))?\s*(?::|#|\.{{2,}}|\s{{2,}})\s*(?P<value>.+)$",
+        rf"^\W*{re.escape(label)}\.?(?:\s*\([^)]*\)|\s+\d+(?:[.,]\d+)?\s?%)?"
+        rf"\s*(?::|#|\.{{2,}}|\s{{2,}})\s*(?P<value>.+)$",
         re.IGNORECASE,
     )
 
