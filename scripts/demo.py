@@ -20,6 +20,8 @@ import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 PDF_DIR = ROOT / "sample_data" / "pdfs"
+# POST /evaluations/run is synchronous; with a real provider it takes minutes, not seconds.
+EVALUATION_TIMEOUT_S = 900
 GROUND_TRUTH = json.loads((ROOT / "sample_data" / "ground_truth.json").read_text())
 
 DOCS = [
@@ -217,7 +219,9 @@ class Demo:
         show("alerts", drift["alerts"] or "none")
 
         section("evaluation run")
-        ev = self.call("POST", "/evaluations/run")
+        if not health["mock_mode"]:
+            print("  real provider: the full evaluation calls the model ~100 times (a few minutes)")
+        ev = self.call("POST", "/evaluations/run", timeout=EVALUATION_TIMEOUT_S)
         show("gate_passed", ev["gate_passed"])
         show("is_mock", ev["is_mock"])
         for cat in ("classification", "extraction", "retrieval", "answers", "workflow"):

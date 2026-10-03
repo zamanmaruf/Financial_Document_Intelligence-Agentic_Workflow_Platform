@@ -27,7 +27,7 @@ It runs **fully offline in mock mode** with no cloud credentials. Configuration 
 
 | | |
 |---|---|
-| **Tests** | 311: 177 unit · 111 integration · 23 end-to-end. 310 pass; 1 skips when Tesseract isn't installed |
+| **Tests** | 312: 177 unit · 112 integration · 23 end-to-end. 311 pass; 1 skips when Tesseract isn't installed |
 | **Real models** | verified live over 30 documents on AWS Bedrock (Claude Haiku 4.5 + Titan embeddings) and Azure OpenAI (`gpt-4.1-mini`): quality gate passes on both ([results](#real-model-results-azure-openai-and-aws-bedrock)) |
 | **Web console** | built-in operator UI at `/ui`: upload, fields with evidence, cited Q&A, review queue, audit ([screenshots](#web-console)) |
 | **Coverage** | 94% of `app/` |
@@ -1100,7 +1100,7 @@ make check           # lint + typecheck + tests + evaluation gate
 | Layer | Tests | Covers |
 |---|---|---|
 | Unit | 177 | hashing, text utilities (English and European number formats), config validation, prompt registry and prompt-hash lock, validation rules, value equivalence for conflict detection, cost aliases, guardrails (injection patterns, PII masking including false positives), groundedness, metrics, drift, gateway retries / JSON repair (fences, prose, trailing junk) / timeouts, audit-chain tampering, providers and factory (LangChain adapters with fake chat models; the exact Azure request body for standard and reasoning deployments), PDF inspection |
-| Integration | 111 | every sample PDF through the real workflow with expected routing and fields; masked account numbers recomputed from the printed number; values taken from injected text marked invalid; numeric values missing from their own evidence left unverified; failure modes (malformed JSON, provider outage, timeouts, empty / malformed / encrypted PDFs, OCR unavailable, vector-store failure, illegal transitions); low-confidence escalation at each threshold; retrieval top-k, similarity threshold and document scoping; human review; RAG (citations, refusal, filters, injection); OCR via a stubbed Textract client and via real Tesseract (skipped when absent); evaluation runner |
+| Integration | 112 | every sample PDF through the real workflow with expected routing and fields; masked account numbers recomputed from the printed number; values taken from injected text marked invalid; numeric values missing from their own evidence left unverified; failure modes (malformed JSON, provider outage, timeouts, empty / malformed / encrypted PDFs, OCR unavailable, vector-store failure, illegal transitions); low-confidence escalation at each threshold; retrieval top-k, similarity threshold and document scoping; human review; RAG (citations, refusal, filters, injection); OCR via a stubbed Textract client and via real Tesseract (skipped when absent); evaluation runner (including that unsupported answer sentences are named in the report) |
 | End-to-end | 23 | FastAPI `TestClient` against the real app: every endpoint, error envelope, request IDs, health degradation, API-key auth and role enforcement; the web console (served with CSP, can be disabled, no `innerHTML`, no third-party resources) |
 
 **Prompt changes are deliberate.** `tests/fixtures/prompt_hashes.json` pins each prompt
@@ -1174,6 +1174,13 @@ gate ([Production roadmap](#24-production-roadmap)).
 - Stored raw text is not masked, and the model provider receives the full document text.
   Bedrock and Azure OpenAI state that prompts are not used for training, but data-processing
   terms must be reviewed for each deployment.
+- **Dependency advisories.** `pip-audit -r requirements.lock` reports four advisories against
+  `chromadb` 1.5.9, with no fixed release yet. All four affect Chroma's HTTP server (remote code
+  execution through its collection API, cross-tenant authorisation). This application embeds
+  Chroma in-process (`PersistentClient`) and never starts that server, so they are not
+  reachable here, but they rule out exposing a Chroma server in production. All other locked
+  dependencies were clean at the time of the last audit (pypdf and LangChain were upgraded to
+  clear theirs). CI does not yet run the audit automatically.
 - No regulatory certification (SOC 2, PCI DSS, etc.) is claimed.
 
 ## 22. Design trade-offs
@@ -1201,8 +1208,11 @@ More detail in the [architecture decision records](docs/adr).
 - The real-model evaluation uses the same 30 synthetic documents and 27 questions as mock mode.
   That proves the integration and catches real failure modes, but it is far too small to measure
   production accuracy.
-- Even at temperature 0 with a fixed seed, hosted models such as gpt-4.1-mini are not guaranteed
-  to be deterministic. Treat single live runs as samples, not guarantees.
+- Even at temperature 0 with a fixed seed, hosted models are not guaranteed to be deterministic.
+  In five full Bedrock runs on the same code, four scored groundedness 1.00 and one scored 0.95
+  (one answer sentence the deterministic check couldn't support), which tripped the regression
+  check against the mock baseline. Treat single live runs as samples; flagged sentences are now
+  named in the report's `failures` so each dip can be inspected.
 - The web console is a single-user operator tool with no saved views, pagination beyond 500
   documents or keyboard shortcuts. It is not a replacement for a product front end.
 - Processing is synchronous: there is no job queue, worker pool or back-pressure.

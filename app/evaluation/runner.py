@@ -304,6 +304,15 @@ class EvaluationRunner:
                 groundedness.append(answer.groundedness.score)
                 unsupported += len(answer.groundedness.unsupported_sentences)
                 total_sentences += answer.groundedness.total_sentences
+                if answer.groundedness.unsupported_sentences:
+                    failures.append(
+                        {
+                            "id": case["id"],
+                            "issue": "unsupported_sentences",
+                            "groundedness": answer.groundedness.score,
+                            "sentences": answer.groundedness.unsupported_sentences,
+                        }
+                    )
             cited_ok = [
                 1.0
                 if cit.document_id == doc_id

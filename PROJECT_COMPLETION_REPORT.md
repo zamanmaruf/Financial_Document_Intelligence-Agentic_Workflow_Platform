@@ -26,7 +26,7 @@ normalised match 0.995, retrieval MRR 0.979). Textract, Azure embeddings and Azu
 reasoning-model mode are implemented and tested with stubs, but have not been run against live
 endpoints.
 
-Final validation (this run): **310 tests passed, 1 skipped** locally (the skipped Tesseract test
+Final validation (this run): **311 tests passed, 1 skipped** locally (the skipped Tesseract test
 passes in the Docker image, which ships Tesseract), **94% line coverage**, ruff lint and format
 clean, **mypy `--strict` clean on 88 files**, **quality gate PASSED (27 checks)** in mock mode.
 
@@ -79,9 +79,9 @@ The Mermaid diagram is in README section 5; the decisions behind it are in `docs
 ## 4. Exact technology choices
 
 Python 3.12.14 · FastAPI 0.142.2 · Uvicorn 0.54.0 · Pydantic 2.13.5 · pydantic-settings 2.15.0 ·
-SQLAlchemy 2.0.54 · pypdf 5.9.0 · pypdfium2 5.13.0 · pytesseract 0.3.13 (Tesseract in Docker) ·
-chromadb 1.5.9 · langchain-core 0.3.86 · langchain-text-splitters 0.3.11 · langchain-aws 0.2.35
-(`ChatBedrockConverse`, `BedrockEmbeddings`) · langchain-openai 0.3.35 (`AzureChatOpenAI`,
+SQLAlchemy 2.0.54 · pypdf 6.19.0 · pypdfium2 5.13.0 · pytesseract 0.3.13 (Tesseract in Docker) ·
+chromadb 1.5.9 · langchain-core 1.6.6 · langchain-text-splitters 1.1.3 · langchain-aws 1.8.0
+(`ChatBedrockConverse`, `BedrockEmbeddings`) · langchain-openai 1.6.7 (`AzureChatOpenAI`,
 `AzureOpenAIEmbeddings`) · boto3 1.43.105 (Textract) · opentelemetry-api 1.45.0 · pytest 9.1.1 ·
 ruff 0.16.9 · mypy 2.3.1 · reportlab 5.0.1 (synthetic PDFs). Dependencies are pinned in
 `requirements.lock` (uv, universal, Python 3.12).
@@ -117,9 +117,9 @@ lexical hashing vectoriser. Every response and log line is labelled (`is_mock`, 
 | Suite | Tests | Result |
 |---|---|---|
 | Unit (`tests/unit`) | 177 | passed |
-| Integration (`tests/integration`) | 111 | 110 passed, 1 skipped locally (`requires_tesseract`) |
+| Integration (`tests/integration`) | 112 | 111 passed, 1 skipped locally (`requires_tesseract`) |
 | End-to-end API and console (`tests/e2e`) | 23 | passed |
-| **Total** | **311** | **310 passed, 1 skipped · 94% coverage (app)** |
+| **Total** | **312** | **311 passed, 1 skipped · 94% coverage (app)** |
 
 Static checks: `ruff check` and `ruff format --check` clean (app, scripts, tests); `mypy --strict`
 clean (88 source files). The console was also checked by hand in a browser against a mock-mode
@@ -213,6 +213,19 @@ Prometheus format; drift reports via API and script; `/health` returning 503 whe
 | 30-document live run: a credit card statement was classified as a bank statement | classification prompt v1.1.0 lists look-alike documents that must be `unknown` |
 | European number formats (`12.435,50`) were parsed as small decimals in evidence checks, groundedness and evaluation | one shared normaliser for both conventions, with tests for the ambiguous cases |
 | Sample generator and committed ground truth had drifted (hand edit) | fixed in the generator; regenerating reproduces the committed files |
+| End-to-end audit: `pip-audit` found 49 advisories in pypdf 5.9.0 (crafted PDFs exhausting memory and similar), reachable because every upload is parsed | upgraded to pypdf 6.19.0; LangChain packages upgraded to 1.x to clear 4 unreachable advisories; both live providers re-run on the new versions with identical results |
+| End-to-end audit: the demo's last step (`POST /evaluations/run`) timed out after 120 s against a real provider | demo allows 15 minutes for that call and says why |
+| End-to-end audit: an unsupported answer sentence lowered groundedness but wasn't listed in the report, so a failed gate couldn't be explained | each flagged sentence is recorded in `failures.answers` with its case ID; test added |
+| End-to-end audit: the drift baseline predated the prompt updates, so every drift report raised a "new prompt versions" alert | baseline regenerated (mock, current prompts, 30 documents) |
+
+**End-to-end audit (2026-10-03):** fresh clone from GitHub installed from the lock file in a clean
+environment passes lint, types, all tests, evaluation and gate offline; live demo walkthrough
+against Bedrock (upload, process, cited Q&A, refusal, injection block, review correct / reject,
+audit-chain verification); console checked in a browser against the live server; Docker image
+rebuilt with the new dependencies (non-root, `/ui` served, Tesseract OCR extracted all 8 fields
+of the scanned invoice); full git history scanned for credentials (none; all commits by one
+author); README links, anchors, setting names, `make` targets, endpoint and reason counts
+checked against the code.
 
 Earlier in the build, tests had caught and fixed: the PII regex masking invoice numbers and
 missing sentence-final account numbers, and reviewer corrections accepting invalid currencies.
@@ -222,7 +235,8 @@ missing sentence-final account numbers, and reviewer corrections accepting inval
 Mock metrics are not model-quality evidence; Textract, Azure embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat, Bedrock Claude and Titan embeddings are verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
 synchronous; SQLite and embedded Chroma are single-node; single-tenant; lexical hashing embeddings
 in mock mode; lexical groundedness misses paraphrase errors and can over-flag scale words;
-pattern-based injection detection; heuristic active-content scan; no tracing or exporter; no
+pattern-based injection detection; heuristic active-content scan; four unfixed chromadb advisories
+(server-only, not reachable in embedded use); no automated dependency audit in CI; no tracing or exporter; no
 scheduled drift job or alerting; indicative pricing only; OCR has no table/layout model.
 
 ## 14. Features intentionally not implemented
@@ -261,7 +275,7 @@ make install                      # .venv (Python 3.12) + package + dev tools
 make dev                          # API on http://127.0.0.1:8000 (console at /ui, OpenAPI at /docs)
 make demo                         # live walkthrough (requires `make dev` in another terminal)
 make lint typecheck               # ruff + mypy --strict
-make test                         # 311 tests with coverage
+make test                         # 312 tests with coverage
 make eval && make gate            # evaluation report + quality gate
 make drift                        # drift report (reports/drift_report.md + .json)
 make docker && make docker-run    # build image; docker compose up

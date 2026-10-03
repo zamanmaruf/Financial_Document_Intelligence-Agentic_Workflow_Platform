@@ -1,28 +1,28 @@
 {
-  "created_at": "2026-09-30T14:25:37.082818Z",
+  "created_at": "2026-10-03T16:29:16.866186Z",
   "window_start": null,
   "counts": {
-    "documents": 17,
-    "extractions": 16,
-    "reviews": 11,
+    "documents": 27,
+    "extractions": 25,
+    "reviews": 19,
     "resolved_reviews": 0,
-    "answers": 16,
-    "invocations": 46
+    "answers": 27,
+    "invocations": 75
   },
   "categorical": {
     "document_type": {
-      "income_statement": 3,
-      "balance_sheet": 3,
-      "invoice": 4,
-      "bank_statement": 3,
-      "fund_summary": 3,
-      "unknown": 1
+      "income_statement": 5,
+      "balance_sheet": 4,
+      "invoice": 6,
+      "bank_statement": 5,
+      "fund_summary": 5,
+      "unknown": 2
     }
   },
   "histograms": {
     "document_length": [
-      12,
-      5,
+      19,
+      8,
       0,
       0,
       0,
@@ -33,19 +33,19 @@
       0,
       0,
       0,
-      7,
-      9
+      9,
+      16
     ],
     "retrieval_top_score": [
-      5,
-      4,
-      4,
+      7,
+      8,
+      6,
       0,
-      1,
+      4,
       2
     ],
     "llm_latency_ms": [
-      46,
+      75,
       0,
       0,
       0,
@@ -55,16 +55,16 @@
     ]
   },
   "scalars": {
-    "review_rate": 0.2941,
+    "review_rate": 0.3333,
     "human_rejection_rate": null,
     "human_correction_rate": null,
     "schema_failure_rate": 0.0,
     "unsupported_answer_rate": 0.0,
-    "refusal_rate": 0.375,
+    "refusal_rate": 0.3704,
     "groundedness_mean": 1.0,
-    "extraction_confidence_mean": 0.9119,
-    "latency_p95_ms": 1.198,
-    "tokens_per_call": 514.0652,
+    "extraction_confidence_mean": 0.9155,
+    "latency_p95_ms": 2.626,
+    "tokens_per_call": 606.2667,
     "cost_per_call_usd": 0.0,
     "eval_extraction_normalized_match": null
   },
@@ -73,22 +73,22 @@
       "mock:mock-deterministic-v1"
     ],
     "prompts": [
-      "classification.document_type@1.0.0",
-      "extraction.financial_entities@1.0.0",
+      "classification.document_type@1.1.0",
+      "extraction.financial_entities@1.2.0",
       "rag.grounded_answer@1.0.0"
     ]
   },
   "samples": {
-    "review_rate": 17,
+    "review_rate": 27,
     "human_rejection_rate": 0,
     "human_correction_rate": 0,
-    "schema_failure_rate": 16,
-    "unsupported_answer_rate": 16,
-    "refusal_rate": 16,
-    "groundedness_mean": 10,
-    "extraction_confidence_mean": 16,
-    "latency_p95_ms": 46,
-    "tokens_per_call": 46,
-    "cost_per_call_usd": 46
+    "schema_failure_rate": 25,
+    "unsupported_answer_rate": 27,
+    "refusal_rate": 27,
+    "groundedness_mean": 17,
+    "extraction_confidence_mean": 25,
+    "latency_p95_ms": 75,
+    "tokens_per_call": 75,
+    "cost_per_call_usd": 75
   }
 }
