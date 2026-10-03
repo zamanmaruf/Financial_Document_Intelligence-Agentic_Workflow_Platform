@@ -29,7 +29,7 @@ endpoints.
 A **public guided demo site** was added afterwards: a React landing page, an eight-step guided
 tour and a playground for non-technical visitors. It's served by the same container in an opt-in
 demo mode with per-visitor workspaces, rate limits, a daily live-AI budget and 24-hour retention.
-It also has an AWS deployment template that hasn't been deployed yet (section 20).
+It's deployed on AWS at https://d1cpufi9ii8q1y.cloudfront.net (section 20).
 
 Final validation (this run): **352 Python tests passed, 1 skipped** locally (the skipped
 Tesseract test passes in the Docker image, which ships Tesseract), **95% line coverage**, ruff lint
@@ -362,7 +362,7 @@ Further detail: `README.md`, `docs/adr/`, `docs/interview-guide.md` (40 topics),
 | React site (`web/`): landing, eight-step tour, playground, how-it-works, glossary tooltips, live/offline badge | implemented; Playwright runs the whole tour against the real API; axe finds no serious or critical WCAG 2.1 AA issues on any page; checked by hand in a browser against the Docker image |
 | Serving at `/` (SPA fallback, strict CSP, immutable asset caching) and a multi-stage Dockerfile | implemented, tested; image built and smoke-tested locally |
 | CI: web, e2e, infra jobs; docker job smoke-tests the site | written; every command passes locally |
-| AWS: CloudFormation template, `deploy.sh`, runbook | written, `cfn-lint` clean; **not deployed**, so there is no public URL yet |
+| AWS: CloudFormation template, `deploy.sh`, runbook | `cfn-lint` clean; **deployed** on 2026-10-03 at https://d1cpufi9ii8q1y.cloudfront.net |
 
 **Differences from the plan:** background processing is
 `POST /documents/{id}/process/background` rather than a query flag; a per-document audit
@@ -377,6 +377,17 @@ two colour-contrast failures (4.48:1) and an unlabelled file input were caught b
 with cents now show two decimals (`1,985.50`); and the console at `/ui` now starts a visitor
 session when demo mode requires one.
 
-**Still to do (owner action):** run the first `make deploy` with an admin AWS profile, confirm
-the budget-alert email, take the tour on the live URL with the badge reading **Live AI**, and add
-the URL to the README.
+**Deployment (2026-10-03).** `make deploy` ran with an admin profile and created the stack in
+about ten minutes. Checks against the public URL:
+- `/`, `/tour`, `/try`, `/how-it-works`, `/ui/` and `/health` return 200, and an unknown route
+  returns the 404 page.
+- The CSP and HSTS headers are present.
+- A request straight to the load balancer times out, because only CloudFront can reach it.
+- The clean invoice reached READY and its question got a cited answer. CloudWatch shows three
+  Bedrock calls with `is_mock: false`, made through the task role, costing about $0.006 in total.
+- Step 1 of the tour ran in a browser, with the badge reading **Live AI**.
+
+The deployed task uses the offline lexical vectoriser for search, not Titan embeddings.
+
+Still to do: confirm the AWS Budgets email subscription, and deactivate the admin access key used
+for the first deploy.

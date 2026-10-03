@@ -14,6 +14,10 @@ question ─► guardrails ─► retrieve ─► answer ─► cite ─► grou
                           every step ─► audit trail · metrics · evaluation · drift
 ```
 
+**Live demo:** [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): a
+three-minute guided tour for non-technical visitors, running on Claude via AWS Bedrock
+([how it's hosted](#public-guided-demo)).
+
 It runs **fully offline in mock mode** with no cloud credentials. Configuration switches it to
 **Claude on AWS Bedrock** (primary) or **Azure OpenAI** (secondary); no business code changes.
 
@@ -28,7 +32,7 @@ It runs **fully offline in mock mode** with no cloud credentials. Configuration 
 | | |
 |---|---|
 | **Tests** | Python: 353 (178 unit · 121 integration · 54 end-to-end); 352 pass, 1 skips when Tesseract isn't installed. Web: 9 unit (Vitest) + 10 browser tests (Playwright, including axe accessibility scans) |
-| **Public demo site** | React guided tour + playground for non-technical visitors, served at `/` in demo mode, with per-visitor workspaces, rate limits and a daily live-AI budget ([details](#public-guided-demo)) |
+| **Public demo site** | React guided tour + playground for non-technical visitors, served at `/` in demo mode, with per-visitor workspaces, rate limits and a daily live-AI budget. Live on AWS at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net) ([details](#public-guided-demo)) |
 | **Real models** | verified live over 30 documents on AWS Bedrock (Claude Haiku 4.5 + Titan embeddings) and Azure OpenAI (`gpt-4.1-mini`): quality gate passes on both ([results](#real-model-results-azure-openai-and-aws-bedrock)) |
 | **Web console** | built-in operator UI at `/ui`: upload, fields with evidence, cited Q&A, review queue, audit ([screenshots](#web-console)) |
 | **Coverage** | 94% of `app/` |
@@ -75,7 +79,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
 | Public guided demo site (`web/`, demo mode) | **Implemented**: tested in CI with the offline engine (Playwright tour, accessibility and mobile checks) and by hand in a browser against the Docker image |
 | Demo-mode protections: visitor workspaces, rate limits, daily live-AI budget, 24-hour retention | **Implemented** and tested; in-memory and single-instance by design ([ADR-011](docs/adr/ADR-011-public-demo.md)) |
-| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Written, not yet deployed**: the template passes `cfn-lint` in CI, but no stack has been created from it yet |
+| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Deployed** on 3 October 2026 at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): one Fargate task calling Claude Haiku 4.5 through its IAM task role, with no stored keys. Checked after deploy: pages, CSP and HSTS headers, the load balancer refusing direct access, and a live tour step. Search uses the offline lexical vectoriser, not Titan embeddings |
 | GitHub Actions CI | **Implemented** (quality, web, browser e2e, infrastructure lint and Docker jobs) |
 | Encryption at rest, TLS inside the app, SSO, tracing, WAF | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
 | Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
@@ -135,7 +139,9 @@ product. Design notes are in [ADR-011](docs/adr/ADR-011-public-demo.md).
 Fargate task, ALB reachable only through CloudFront, an IAM task role limited to
 `bedrock:InvokeModel` on one model, logs, a budget alert), `deploy.sh` and a
 [runbook](deploy/aws/RUNBOOK.md) with costs (about $45 a month before Bedrock usage) and
-limitations. The stack hasn't been deployed yet, so there is no public link.
+limitations. It's deployed at
+[d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net). Visitor data lives on the
+task's local disk, so it resets whenever a new version is deployed.
 
 ---
 
