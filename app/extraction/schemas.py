@@ -74,7 +74,9 @@ class InvoiceFields(_Schema):
 
 
 class BankStatementFields(_Schema):
-    bank_name: str | None = _f("Issuing bank", FieldKind.TEXT)
+    bank_name: str | None = _f(
+        "Issuing bank or credit union (may appear only as the document heading)", FieldKind.TEXT
+    )
     account_holder: str | None = _f("Account holder name", FieldKind.TEXT)
     account_number_masked: str | None = _f(
         "Account number, masked to last 4 digits", FieldKind.MASKED_ACCOUNT, True

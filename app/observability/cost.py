@@ -24,8 +24,11 @@ class CostEstimator:
             return cls({})
         with path.open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
-        models = data.get("models", {})
-        return cls({name: ModelPrice.model_validate(p) for name, p in models.items()})
+        prices = {name: ModelPrice.model_validate(p) for name, p in data.get("models", {}).items()}
+        for alias, target in (data.get("aliases") or {}).items():
+            if target in prices:
+                prices[alias] = prices[target]
+        return cls(prices)
 
     def estimate(self, model_name: str, input_tokens: int, output_tokens: int) -> float | None:
         """Estimated USD cost, or ``None`` when the model has no price entry (unknown, not free)."""

@@ -93,6 +93,10 @@ class PromptRegistry:
             raise ProviderConfigurationError(f"unknown prompt version {name}@{version}")
         return versions[version]
 
+    def active_versions(self) -> dict[str, str]:
+        """The version ``get(name)`` resolves to for each prompt (the latest semver)."""
+        return {name: max(versions, key=_version_key) for name, versions in self._by_name.items()}
+
     def catalog(self) -> list[dict[str, str]]:
         return [
             {"name": p.name, "version": p.version, "purpose": p.purpose, "hash": p.hash}

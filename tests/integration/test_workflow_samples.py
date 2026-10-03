@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 
 from app.core.errors import InvalidDocumentError
+from app.core.registry import DocumentTypeRegistry
 from app.domain.enums import ReviewReason, WorkflowStatus
 from app.evaluation.metrics import values_normalized_match
+from app.providers.llm.mock import MockLLMProvider
+from app.providers.llm.mock_handlers import MockHandler, default_handlers
 from app.services.container import Container
 from tests.support import GROUND_TRUTH, ingest_and_process, sample_pdf
 
@@ -79,6 +83,49 @@ def test_account_identifiers_are_masked_everywhere(
     for blob in exposed:
         assert unmasked_prefix not in blob
         assert compact not in blob
+
+
+def _garbling_handlers(registry: DocumentTypeRegistry, printed: str) -> dict[str, MockHandler]:
+    """Mock handlers whose extraction mis-masks the account number, as gpt-4.1-mini once did."""
+    handlers = default_handlers(registry)
+    base = handlers["extraction.financial_entities"]
+
+    def garble(variables: dict[str, Any]) -> dict[str, Any]:
+        out = base(variables)
+        account = out["fields"].get("account_number_masked")
+        if account and account.get("value"):
+            out["fields"]["account_number_masked"] = {
+                **account,
+                "value": "****2619",
+                "raw_text": printed,
+            }
+        return out
+
+    handlers["extraction.financial_entities"] = garble
+    return handlers
+
+
+@pytest.mark.parametrize(
+    ("printed", "expected"),
+    [
+        ("GB29 NWBK 6016 1331 9268 19", "****6819"),  # printed in the PDF: authoritative
+        ("GB00 0000 0000 0000 0000 99", "****2619"),  # not in the PDF: model value kept
+    ],
+)
+def test_masked_account_is_recomputed_from_printed_number(
+    container_factory: Callable[..., Container],
+    registry: DocumentTypeRegistry,
+    printed: str,
+    expected: str,
+) -> None:
+    c = container_factory(llm=MockLLMProvider(_garbling_handlers(registry, printed)))
+    doc, _ = ingest_and_process(c, "bank_statement_02_harbor.pdf")
+    extraction = c.extractions.latest_for_document(doc.document_id)
+    assert extraction is not None
+    entity = extraction.entity("account_number_masked")
+    assert entity is not None and entity.value == expected
+    recomputed = any("recomputed" in m for m in entity.messages)
+    assert recomputed == (expected == "****6819")
 
 
 def test_conflicting_values_route_to_review(container: Container) -> None:

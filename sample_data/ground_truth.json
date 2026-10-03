@@ -210,7 +210,7 @@
       "file": "bank_statement_03_pinnacle.pdf",
       "document_type": "bank_statement",
       "expected_fields": {
-        "bank_name": null,
+        "bank_name": "Pinnacle Credit Union",
         "account_holder": "Aurora Health Partners LLC",
         "account_number_masked": "****2219",
         "statement_period": "2025-02-01 to 2025-02-28",
@@ -222,7 +222,7 @@
       },
       "expected_outcome": "READY",
       "edge_case": "unusual_formatting",
-      "notes": "Currency symbols, negative debits, no bank name.",
+      "notes": "Currency symbols, negative debits, bank name only as an unlabelled heading.",
       "kind": "text",
       "include_in_eval": true
     },

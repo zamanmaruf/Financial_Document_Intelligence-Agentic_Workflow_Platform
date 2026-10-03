@@ -394,8 +394,11 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
   message construction, response parsing and token-usage handling. The real clients are only
   constructed when no model is injected, after config validation.
 - **Follow-up:** Does that prove the Bedrock call works?
-- **Follow-up answer:** No — it proves our side of the contract. A scheduled contract test with
-  real credentials is needed to catch provider-side changes; that's on the roadmap.
+- **Follow-up answer:** No — it proves our side of the contract. I did run the Azure adapter live
+  against `gpt-4.1-mini`, and the evaluation suite immediately found things the fakes couldn't: a
+  ground-truth label biased toward the mock, an ambiguous date rule in the prompt, a mis-masked
+  IBAN, and a conflict check that was case-sensitive. Bedrock still needs that run, and a
+  scheduled contract test with real credentials should catch provider-side changes.
 
 ## Document intelligence
 

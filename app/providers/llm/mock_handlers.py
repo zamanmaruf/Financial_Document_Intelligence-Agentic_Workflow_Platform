@@ -37,6 +37,8 @@ _CURRENCY_SYMBOLS = {"$": "USD", "€": "EUR", "£": "GBP"}
 _ISO_CURRENCY_RE = re.compile(r"\b(USD|EUR|GBP|CHF|JPY|CAD|AUD|SEK|NOK|DKK|SGD|HKD)\b")
 _PERCENT_RE = re.compile(r"-?\d+(?:\.\d+)?\s?%")
 _DIGITS_RE = re.compile(r"\d")
+# Fields whose value may be printed only as an unlabelled heading on the first page.
+_HEADING_KEYWORDS = {"bank_name": ("bank", "credit union", "building society")}
 
 
 # --------------------------------------------------------------------------- classification
@@ -168,6 +170,8 @@ def make_extraction_handler(registry: DocumentTypeRegistry) -> MockHandler:
                         break
             if kind == FieldKind.CURRENCY and not matches:
                 matches = _infer_currency(pages)
+            if name in _HEADING_KEYWORDS and not matches:
+                matches = _heading_match(pages, _HEADING_KEYWORDS[name])
             if not matches:
                 out[name] = {"value": None, "confidence": 0.0}
                 continue
@@ -193,6 +197,24 @@ def make_extraction_handler(registry: DocumentTypeRegistry) -> MockHandler:
         return {"fields": out}
 
     return handle
+
+
+def _heading_match(pages: list[dict[str, Any]], keywords: tuple[str, ...]) -> list[dict[str, Any]]:
+    if not pages:
+        return []
+    lines = [clean_line(line) for line in str(pages[0]["text"]).splitlines()]
+    heading = next((line for line in lines if line), "")
+    if not heading or not any(k in heading.lower() for k in keywords):
+        return []
+    return [
+        {
+            "value": heading,
+            "raw_text": heading,
+            "page_number": pages[0]["page_number"],
+            "evidence_snippet": heading,
+            "canonical": False,
+        }
+    ]
 
 
 def _infer_currency(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:

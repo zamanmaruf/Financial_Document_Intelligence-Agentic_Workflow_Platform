@@ -52,8 +52,10 @@ DOCINTEL_AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o
   import graph can be checked with `grep -r "langchain_aws\|langchain_openai\|boto3" app/`, which
   only matches `app/providers/`.
 - The real adapters are unit-tested with LangChain fake chat models and construct real SDK clients
-  offline, but **have not been exercised against live Bedrock or Azure endpoints in this repository**
-  (no credentials were available). The first real-provider run should be the evaluation suite.
+  offline. **The Azure OpenAI adapter has since been verified live** (`gpt-4.1-mini`): the first
+  real-provider run was the evaluation suite, as intended, and it surfaced four issues that the
+  mock could not (see the README's "Real-model results"). The Bedrock adapter has not yet been run
+  against a live endpoint.
 - Prompts are shared across vendors. If vendor-specific prompt variants become necessary, the
   registry supports multiple versions per prompt name.
 - Automatic cross-vendor failover is intentionally **not** implemented: switching vendor changes model

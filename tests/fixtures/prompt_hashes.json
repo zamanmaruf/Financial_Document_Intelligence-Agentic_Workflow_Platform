@@ -1,6 +1,7 @@
 {
   "classification.document_type@1.0.0": "0c95f1963c2ff08a",
   "extraction.financial_entities@1.0.0": "51ac9ab53ab7291e",
+  "extraction.financial_entities@1.1.0": "63be333b27d60c24",
   "rag.grounded_answer@1.0.0": "e13ca1e6d19c3188",
   "validation.groundedness_judge@1.0.0": "69a66ab39a5ca357"
 }

@@ -1,6 +1,7 @@
 # Illustrative per-1K-token prices (USD) used ONLY for cost *estimation* in logs, metrics and
 # drift reports. Prices change and vary by region/contract: verify against the provider's current
-# price list before relying on these numbers. Unknown models are costed at 0 and flagged.
+# price list before relying on these numbers. Unknown models get a null cost and increment
+# llm_unpriced_calls_total rather than being reported as free.
 version: "2024-10"
 models:
   anthropic.claude-3-5-sonnet-20240620-v1:0:
@@ -15,6 +16,9 @@ models:
   gpt-4o-mini:
     input_per_1k: 0.00015
     output_per_1k: 0.0006
+  gpt-4.1-mini:
+    input_per_1k: 0.0004
+    output_per_1k: 0.0016
   amazon.titan-embed-text-v2:0:
     input_per_1k: 0.00002
     output_per_1k: 0.0
@@ -24,3 +28,6 @@ models:
   mock-deterministic-v1:
     input_per_1k: 0.0
     output_per_1k: 0.0
+# Azure OpenAI reports the deployment name, which is user-chosen: map it to the model it serves.
+aliases:
+  gpt-4.1-mini-1: gpt-4.1-mini

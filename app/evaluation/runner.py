@@ -91,7 +91,7 @@ class EvaluationRunner:
                 **self._settings.public_summary(),
                 "llm_model": container.llm.model_name,
                 "embedding_model": container.embedder.model_name,
-                "prompts": {p["name"]: p["version"] for p in container.prompts.catalog()},
+                "prompts": container.prompts.active_versions(),
                 "llm_judge": self._settings.eval_use_llm_judge,
             },
             metrics=metrics,

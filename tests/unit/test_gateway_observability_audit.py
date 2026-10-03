@@ -198,6 +198,16 @@ class TestObservability:
         assert cost.estimate("unknown-model", 1000, 1000) is None
         assert not cost.known("unknown-model")
 
+    def test_cost_alias_maps_azure_deployment_to_model(self, tmp_path: Path) -> None:
+        (tmp_path / "pricing.yaml").write_text(
+            "models:\n  gpt-4.1-mini: {input_per_1k: 0.0004, output_per_1k: 0.0016}\n"
+            "aliases:\n  my-deployment: gpt-4.1-mini\n  dangling: not-a-model\n",
+            encoding="utf-8",
+        )
+        cost = CostEstimator.load(tmp_path)
+        assert cost.estimate("my-deployment", 1000, 1000) == pytest.approx(0.002)
+        assert not cost.known("dangling")
+
     def test_unpriced_model_is_not_reported_as_free(
         self,
         container: Container,

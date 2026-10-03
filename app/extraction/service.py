@@ -7,7 +7,13 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError
 
 from app.core.clock import new_id
-from app.core.text import contains_normalized, extract_numbers, normalize_number, parse_amount
+from app.core.text import (
+    contains_normalized,
+    extract_numbers,
+    normalize_number,
+    normalize_ws,
+    parse_amount,
+)
 from app.domain.enums import DocumentType, ReviewReason, Severity, ValidationStatus
 from app.domain.models import (
     Evidence,
@@ -44,6 +50,18 @@ def mask_account_number(value: str) -> str | None:
     if len(digits) < 4:
         return None
     return f"****{digits[-4:]}"
+
+
+def same_value(a: FieldValue, b: FieldValue) -> bool:
+    """Whether two extracted values denote the same thing (case/spacing variants are not conflicts).
+
+    Numbers must agree to the cent: a genuine conflict can be a small difference.
+    """
+    if isinstance(a, int | float) and isinstance(b, int | float):
+        return abs(float(a) - float(b)) < 0.005
+    if isinstance(a, str) and isinstance(b, str):
+        return normalize_ws(a).casefold() == normalize_ws(b).casefold()
+    return a == b
 
 
 def coerce_field_value(kind: FieldKind, value: Any) -> Any:
@@ -138,6 +156,17 @@ class EntityExtractor:
             raw = result.output.fields.get(spec.name) or FieldLLMOutput()
             coerced = coerce_field_value(spec.kind, raw.value)
             messages: list[str] = []
+            if spec.kind == FieldKind.MASKED_ACCOUNT and raw.raw_text:
+                # Models can garble digits while masking; the printed number, once located in the
+                # source text, is authoritative.
+                printed = any(contains_normalized(p.text, raw.raw_text) for p in text.pages)
+                recomputed = mask_account_number(raw.raw_text) if printed else None
+                if recomputed is not None and recomputed != coerced:
+                    messages.append(
+                        f"masked value recomputed from the printed account number "
+                        f"(model returned {coerced!r})"
+                    )
+                    coerced = recomputed
             value: FieldValue = None
             try:
                 validated = schema_model.model_validate({spec.name: coerced})
@@ -161,7 +190,9 @@ class EntityExtractor:
             alternatives: list[FieldValue] = []
             for alt in raw.alternatives:
                 alt_c = coerce_field_value(spec.kind, alt)
-                if isinstance(alt_c, float | str) and alt_c != value:
+                if not isinstance(alt_c, float | str):
+                    continue
+                if not any(same_value(alt_c, seen) for seen in [value, *alternatives]):
                     alternatives.append(alt_c)
 
             entities.append(

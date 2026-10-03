@@ -13,11 +13,13 @@ It ships with an evaluation harness plus CI quality gate, drift monitoring, stru
 observability, Docker packaging and GitHub Actions CI.
 
 Everything runs offline in a clearly labelled, deterministic mock mode; AWS Bedrock (Claude) and
-Azure OpenAI are real integrations selected by configuration. They are implemented and
-unit-tested with fakes, but were **not** exercised against live cloud endpoints in this
-environment (no credentials).
+Azure OpenAI are real integrations selected by configuration. **Azure OpenAI has been verified
+live** with a `gpt-4.1-mini` deployment: the full evaluation passes the quality gate (see the
+README's "Real-model results" section, which also lists the four issues that run surfaced and
+how each was fixed). Bedrock, Textract and the cloud embedding adapters are implemented and
+unit-tested with fakes, but have not been run against live endpoints.
 
-Final validation (this run): **255 tests passed, 1 skipped** locally (the skipped Tesseract test
+Final validation (this run): **265 tests passed, 1 skipped** locally (the skipped Tesseract test
 passes in the Docker image, which ships Tesseract), **94% line coverage**, ruff lint and format
 clean, **mypy `--strict` clean on 87 files**, **quality gate PASSED (27 checks)**, live demo against
 Uvicorn completed, Docker image built and smoke-tested (healthy, non-root, real OCR).
@@ -102,10 +104,10 @@ lexical hashing vectoriser. Every response and log line is labelled (`is_mock`, 
 
 | Suite | Tests | Result |
 |---|---|---|
-| Unit (`tests/unit`) | 153 | passed |
-| Integration (`tests/integration`) | 88 | 87 passed, 1 skipped locally (`requires_tesseract`) |
+| Unit (`tests/unit`) | 161 | passed |
+| Integration (`tests/integration`) | 90 | 89 passed, 1 skipped locally (`requires_tesseract`) |
 | End-to-end API (`tests/e2e`) | 15 | passed |
-| **Total** | **256** | **255 passed, 1 skipped · 94% coverage (app)** |
+| **Total** | **266** | **265 passed, 1 skipped · 94% coverage (app)** |
 
 Static checks: `ruff check` and `ruff format --check` clean (app, scripts, tests); `mypy --strict`
 clean (87 source files). Additional manual validation in this run: live Uvicorn + `scripts/demo.py`
@@ -177,13 +179,19 @@ Prometheus format; drift reports via API and script; `/health` returning 503 whe
 | Spec audit: retrieval top-k and similarity threshold were configurable but untested | top-k, threshold and document-scope tests added |
 | Spec audit: README drift section omitted document-length and retrieval-score distributions | corrected |
 | Spec audit: architecture diagram did not show the orchestrator branching to RAG, guardrails and review | diagram restructured into document workflow + Q&A flow |
+| Real-model run: Pinnacle ground truth said "no bank name" although the heading prints it (mock bias) | ground truth corrected; mock handles unlabelled bank headings |
+| Real-model run: prompt didn't say how to format dates; model reformatted dates and turned a quarter into a date | prompt `extraction.financial_entities` v1.1.0 |
+| Real-model run: model mis-masked an IBAN (`****2619` for `…9268 19`) | masked value recomputed in code from the printed number once found in the source text |
+| Real-model run: case-only "alternatives" (capitalised headings) counted as conflicts, sending 3 clean documents to review | conflict detection ignores case/spacing for text; numbers must match to the cent |
+| Evaluation report listed the oldest prompt version instead of the one in use | `PromptRegistry.active_versions()` |
+| Azure deployment names had no price entry | `aliases:` in `config/pricing.yaml` |
 
 Earlier in the build, tests had caught and fixed: the PII regex masking invoice numbers and
 missing sentence-final account numbers, and reviewer corrections accepting invalid currencies.
 
 ## 13. Known limitations
 
-Mock metrics are not model-quality evidence; live cloud paths are unverified here; processing is
+Mock metrics are not model-quality evidence; Bedrock, Textract and cloud embeddings are unverified live (Azure OpenAI chat is verified); the real-model evaluation uses only 17 synthetic documents; processing is
 synchronous; SQLite and embedded Chroma are single-node; single-tenant; lexical hashing embeddings
 in mock mode; lexical groundedness misses paraphrase errors and can over-flag scale words;
 pattern-based injection detection; heuristic active-content scan; no tracing or exporter; no
@@ -224,7 +232,7 @@ make install                      # .venv (Python 3.12) + package + dev tools
 make dev                          # API on http://127.0.0.1:8000 (OpenAPI at /docs)
 make demo                         # live walkthrough (requires `make dev` in another terminal)
 make lint typecheck               # ruff + mypy --strict
-make test                         # 256 tests with coverage
+make test                         # 266 tests with coverage
 make eval && make gate            # evaluation report + quality gate
 make drift                        # drift report (reports/drift_report.md + .json)
 make docker && make docker-run    # build image; docker compose up

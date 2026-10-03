@@ -7,10 +7,25 @@ import pytest
 from app.domain.enums import DocumentType, ValidationStatus
 from app.domain.models import Evidence, ExtractedEntity, ExtractionResult
 from app.extraction.schemas import FieldKind
-from app.extraction.service import coerce_field_value
+from app.extraction.service import coerce_field_value, same_value
 from app.extraction.validation import validate_extraction, validate_field
 
 TOL = 0.005
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "same"),
+    [
+        ("Northwind Traders Inc.", "NORTHWIND TRADERS INC.", True),
+        ("Helios  Renewables GmbH", "helios renewables gmbh", True),
+        ("Northwind Traders Inc.", "Northwind Trading Ltd", False),
+        (1_250_000.0, 1_250_000.0, True),
+        (1_250_000.0, 1_250_000.01, False),
+        ("100", 100.0, False),
+    ],
+)
+def test_same_value_ignores_case_but_not_cents(a: Any, b: Any, same: bool) -> None:
+    assert same_value(a, b) is same
 
 
 def result(

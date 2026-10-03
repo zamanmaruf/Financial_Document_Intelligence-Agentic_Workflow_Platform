@@ -27,7 +27,8 @@ It runs **fully offline in mock mode** with no cloud credentials. Configuration 
 
 | | |
 |---|---|
-| **Tests** | 256: 153 unit · 88 integration · 15 end-to-end. 255 pass; 1 skips when Tesseract isn't installed |
+| **Tests** | 266: 161 unit · 90 integration · 15 end-to-end. 265 pass; 1 skips when Tesseract isn't installed |
+| **Real model** | verified live on Azure OpenAI `gpt-4.1-mini`: quality gate passes ([results](#real-model-results-azure-openai-gpt-41-mini)) |
 | **Coverage** | 94% of `app/` |
 | **Static checks** | `ruff` lint + format, `mypy --strict`, all clean |
 | **Quality gate** | 27 checks (absolute thresholds + regression vs. baseline), passing |
@@ -56,7 +57,8 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | Area | Status |
 |---|---|
 | PDF ingestion, text extraction, Tesseract OCR, classification/extraction pipeline, validation, chunking, indexing, retrieval, RAG, citations, groundedness, guardrails, human review, audit chain, metrics, evaluation, drift | **Implemented** and exercised by tests and the demo |
-| AWS Bedrock (Claude + Titan embeddings), Azure OpenAI (chat + embeddings), AWS Textract | **Implemented**, unit-tested with fake chat models and stubbed clients; **not run against live cloud services** in this environment |
+| Azure OpenAI chat | **Implemented and verified live** with `gpt-4.1-mini`: full pipeline and evaluation, quality gate passing |
+| AWS Bedrock (Claude + Titan embeddings), Azure OpenAI embeddings, AWS Textract | **Implemented**, unit-tested with fake chat models and stubbed clients; **not yet run against live services** |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
 | GitHub Actions CI | **Implemented** and passing on GitHub (quality + Docker jobs) |
@@ -145,7 +147,7 @@ routes uncertainty to people instead of hiding it.
 | Native text extraction | `pypdf`, per page |
 | OCR fallback | Tesseract (local, via `pypdfium2` rendering) or AWS Textract; OCR use routes to review, OCR unavailability routes to review |
 | Classification | LLM with a versioned prompt → `ClassificationResult` (type, confidence, rationale) |
-| Structured extraction | per-type Pydantic schemas whose field descriptions feed the prompt; evidence quotes verified against the page text |
+| Structured extraction | per-type Pydantic schemas whose field descriptions feed the prompt; evidence quotes verified against the page text; masked account numbers recomputed from the printed number rather than trusted from the model |
 | Validation | type, format, range and cross-field business rules (table below) |
 | Chunking + embeddings | page-aware recursive splitter (600 chars, 80 overlap by default); hashing (offline), Bedrock Titan v2 or Azure embeddings |
 | Vector store | Chroma (persistent) or in-memory behind a `VectorStore` protocol, with metadata filters |
@@ -563,8 +565,17 @@ DOCINTEL_AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o
 DOCINTEL_AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
 ```
 
+- **Endpoint.** Use the resource's base address only: `https://<resource>.openai.azure.com/`
+  or, for resources created through Microsoft Foundry, `https://<resource>.services.ai.azure.com/`.
+  Don't use the Foundry *project* endpoint (`…/api/projects/…`) or a full `…/responses` /
+  `…/chat/completions` URL; the client appends the deployment path itself.
 - **Key handling.** The key is held as a `SecretStr` and never logged.
-- **Deployments.** Azure routes on deployment names, not model names.
+- **Deployments.** Azure routes on deployment names, not model names, so invocation logs and
+  cost estimates see the deployment name. Map it to its model under `aliases:` in
+  `config/pricing.yaml` (e.g. `gpt-4.1-mini-1: gpt-4.1-mini`) so costs aren't reported as unknown.
+- **Model choice.** The adapter sends `temperature=0` and `max_tokens`, which non-reasoning chat
+  models such as `gpt-4.1-mini` accept. Reasoning models (o-series, GPT-5 family) reject those
+  parameters and would need an adapter change.
 - **Start-up validation.** Selecting `azure_openai` without an endpoint, key or deployment fails
   fast with a clear error.
 
@@ -818,6 +829,57 @@ and metrics** work end to end, not that any model is accurate. The useful signal
 Real-model quality must be measured on a representative, labelled corpus with a baseline for
 each provider ([ADR-006](docs/adr/ADR-006-evaluation-methodology.md)).
 
+### Real-model results (Azure OpenAI gpt-4.1-mini)
+
+The same harness was run against a live Azure OpenAI `gpt-4.1-mini` deployment (Global
+Standard), with offline hashing embeddings and the same datasets. Configure the provider in `.env`
+and run `make eval` to reproduce it.
+
+| Metric | Mock | gpt-4.1-mini, first run | gpt-4.1-mini, after fixes |
+|---|---|---|---|
+| classification.accuracy | 1.00 | 1.00 | 1.00 |
+| extraction.normalized_match | 1.00 | 0.922 | 1.00 |
+| extraction.hallucinated_field_rate | 0.00 | 0.143 | 0.00 |
+| answers.completeness | 0.75 | 1.00 | 1.00 |
+| answers.false_refusal_rate | 0.167 | 0.00 | 0.00 |
+| answers.groundedness / citation_correctness | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 |
+| workflow.routing_accuracy | 1.00 | 1.00 | 1.00 |
+| Quality gate | passed | **failed** | passed |
+
+**What the first real run found, and what changed:**
+
+1. **The ground truth was biased toward the mock.** The Pinnacle statement prints its bank name
+   only as an unlabelled heading ("PINNACLE CREDIT UNION"). The ground truth said "no bank name"
+   because the mock reads labelled lines only. The model was right; the label was corrected (and
+   the mock taught the heading case).
+2. **The prompt was ambiguous about dates.** The model rewrote "December 31, 2024" as
+   `2024-12-31` and turned "Q3 2025" into a date. Prompt `extraction.financial_entities` v1.1.0
+   now says to copy dates and periods exactly as printed.
+3. **The model garbled digits while masking.** For the IBAN ending `…9268 19` it returned the
+   correct printed text but the masked value `****2619`. The masked value is now recomputed in code
+   from the printed number once that number is located in the source text, so this class of error
+   is fixed deterministically, whatever the model.
+4. **The prompt fix caused a regression, and the harness caught it.** v1.1.0 led the model to
+   list capitalised headings ("NORTHWIND TRADERS INC.") as alternative company names. The
+   case-sensitive conflict check sent three clean documents to review (routing accuracy 0.85).
+   Conflict detection now ignores case and spacing for text, while numbers must still agree to
+   the cent.
+
+**Other observations:**
+
+- **Answers are better than the mock's.** Completeness is 1.0 against 0.75, with no false
+  refusals; the mock's extractive answering is the weak part of mock mode.
+- **`answers.answer_relevance_lexical` is low (0.17)** because the model answers tersely and the
+  metric counts word overlap with the question. It is reported but not gated, a reminder of the
+  limits of lexical metrics.
+- **Cost and speed:** classification plus extraction for 13 documents used about 18,000 tokens
+  (about $0.015 at list price). A full run takes 2–5 minutes under a 30K tokens-per-minute limit.
+
+Seventeen synthetic documents are far too few to claim production accuracy. What this run shows is
+that the real integration works end to end, and that the evaluation loop surfaces real failure
+modes (including ones in the evaluation itself) before they ship. The mock baseline remains the CI
+gate; a real-provider baseline would be kept separately per provider and model.
+
 ## 17. Observability
 
 - **Structured logs.** One JSON object per line with `timestamp`, `level`, `logger`, `event`,
@@ -883,8 +945,8 @@ make check           # lint + typecheck + tests + evaluation gate
 
 | Layer | Tests | Covers |
 |---|---|---|
-| Unit | 153 | hashing, text utilities, config validation, prompt registry and prompt-hash lock, validation rules, guardrails (injection patterns, PII masking including false positives), groundedness, metrics, drift, gateway retries / JSON repair / timeouts, audit-chain tampering, providers and factory (LangChain adapters with fake chat models), PDF inspection |
-| Integration | 88 | every sample PDF through the real workflow with expected routing and fields; failure modes (malformed JSON, provider outage, timeouts, empty / malformed / encrypted PDFs, OCR unavailable, vector-store failure, illegal transitions); low-confidence escalation at each threshold; retrieval top-k, similarity threshold and document scoping; human review; RAG (citations, refusal, filters, injection); OCR via a stubbed Textract client and via real Tesseract (skipped when absent); evaluation runner |
+| Unit | 161 | hashing, text utilities, config validation, prompt registry and prompt-hash lock, validation rules, value equivalence for conflict detection, cost aliases, guardrails (injection patterns, PII masking including false positives), groundedness, metrics, drift, gateway retries / JSON repair / timeouts, audit-chain tampering, providers and factory (LangChain adapters with fake chat models), PDF inspection |
+| Integration | 90 | every sample PDF through the real workflow with expected routing and fields; masked account numbers recomputed from the printed number; failure modes (malformed JSON, provider outage, timeouts, empty / malformed / encrypted PDFs, OCR unavailable, vector-store failure, illegal transitions); low-confidence escalation at each threshold; retrieval top-k, similarity threshold and document scoping; human review; RAG (citations, refusal, filters, injection); OCR via a stubbed Textract client and via real Tesseract (skipped when absent); evaluation runner |
 | End-to-end | 15 | FastAPI `TestClient` against the real app: every endpoint, error envelope, request IDs, health degradation, API-key auth and role enforcement |
 
 **Prompt changes are deliberate.** `tests/fixtures/prompt_hashes.json` pins each prompt
@@ -973,8 +1035,12 @@ More detail in the [architecture decision records](docs/adr).
 ## 23. Known limitations
 
 - Mock-mode metrics describe the pipeline on synthetic data, not model accuracy.
-- The Bedrock, Azure OpenAI and Textract paths are implemented and unit-tested with fakes and
-  stubs, but have not been run against live cloud services.
+- Azure OpenAI chat has been verified live (`gpt-4.1-mini`). The Bedrock, Textract and cloud
+  embedding paths are implemented and unit-tested with fakes and stubs, but have not been run
+  against live services.
+- The real-model evaluation uses the same 17 synthetic documents and 16 questions as mock mode.
+  That proves the integration and catches real failure modes, but it is far too small to measure
+  production accuracy.
 - Processing is synchronous: there is no job queue, worker pool or back-pressure.
 - Single-tenant: no per-tenant data isolation or row-level authorisation.
 - OCR quality depends on Tesseract, and there is no layout or table model, so complex tables in

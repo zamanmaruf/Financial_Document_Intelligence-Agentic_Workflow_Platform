@@ -28,6 +28,12 @@ class TestPromptRegistry:
             assert any(n.startswith(f"{category}.") for n in names), category
             assert (PROMPTS_DIR / category).is_dir()
 
+    def test_active_versions_match_what_get_resolves(self, prompts: PromptRegistry) -> None:
+        active = prompts.active_versions()
+        assert active["extraction.financial_entities"] == "1.1.0"
+        for name, version in active.items():
+            assert prompts.get(name).version == version
+
     def test_every_prompt_has_metadata(self, prompts: PromptRegistry) -> None:
         for entry in prompts.catalog():
             spec = prompts.get(entry["name"], entry["version"])
