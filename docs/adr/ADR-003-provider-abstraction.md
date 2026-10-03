@@ -36,7 +36,7 @@ CI). Business logic must not import vendor SDKs.
 ```bash
 # AWS Bedrock (credentials from env/profile/instance role)
 DOCINTEL_LLM_PROVIDER=bedrock
-DOCINTEL_BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
+DOCINTEL_BEDROCK_MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0
 DOCINTEL_EMBEDDING_PROVIDER=bedrock
 
 # Azure OpenAI

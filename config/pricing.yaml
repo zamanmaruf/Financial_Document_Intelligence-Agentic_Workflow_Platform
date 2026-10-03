@@ -10,6 +10,9 @@ models:
   anthropic.claude-3-haiku-20240307-v1:0:
     input_per_1k: 0.00025
     output_per_1k: 0.00125
+  anthropic.claude-haiku-4-5-20251001-v1:0:
+    input_per_1k: 0.001
+    output_per_1k: 0.005
   gpt-4o:
     input_per_1k: 0.0025
     output_per_1k: 0.01
@@ -29,5 +32,8 @@ models:
     input_per_1k: 0.0
     output_per_1k: 0.0
 # Azure OpenAI reports the deployment name, which is user-chosen: map it to the model it serves.
+# Bedrock cross-region inference profiles prefix the model ID with a geography (us., eu., global.).
 aliases:
   gpt-4.1-mini-1: gpt-4.1-mini
+  us.anthropic.claude-haiku-4-5-20251001-v1:0: anthropic.claude-haiku-4-5-20251001-v1:0
+  global.anthropic.claude-haiku-4-5-20251001-v1:0: anthropic.claude-haiku-4-5-20251001-v1:0

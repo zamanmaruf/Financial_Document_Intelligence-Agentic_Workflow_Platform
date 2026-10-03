@@ -28,7 +28,7 @@ It runs **fully offline in mock mode** with no cloud credentials. Configuration 
 | | |
 |---|---|
 | **Tests** | 311: 177 unit · 111 integration · 23 end-to-end. 310 pass; 1 skips when Tesseract isn't installed |
-| **Real model** | verified live on Azure OpenAI `gpt-4.1-mini` over 30 documents: quality gate passes ([results](#real-model-results-azure-openai-gpt-41-mini)) |
+| **Real models** | verified live over 30 documents on AWS Bedrock (Claude Haiku 4.5 + Titan embeddings) and Azure OpenAI (`gpt-4.1-mini`): quality gate passes on both ([results](#real-model-results-azure-openai-and-aws-bedrock)) |
 | **Web console** | built-in operator UI at `/ui`: upload, fields with evidence, cited Q&A, review queue, audit ([screenshots](#web-console)) |
 | **Coverage** | 94% of `app/` |
 | **Static checks** | `ruff` lint + format, `mypy --strict`, all clean |
@@ -61,7 +61,8 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | Azure OpenAI chat | **Implemented and verified live** with `gpt-4.1-mini`: full pipeline and evaluation, quality gate passing |
 | Azure OpenAI reasoning deployments (GPT-5, o-series) | **Implemented** (`DOCINTEL_AZURE_OPENAI_REASONING_MODEL=true`); request shape is unit-tested, **not yet run against a live reasoning deployment** |
 | Web console (`/ui`) | **Implemented**: static HTML/JS over the same API, tested in a browser and by e2e tests. An operator console, not a multi-user product UI |
-| AWS Bedrock (Claude + Titan embeddings), Azure OpenAI embeddings, AWS Textract | **Implemented**, unit-tested with fake chat models and stubbed clients; **not yet run against live services** |
+| AWS Bedrock chat (Claude) and Titan embeddings | **Implemented and verified live** with Claude Haiku 4.5 (cross-region inference profile) and Titan Text Embeddings V2: full evaluation, quality gate passing |
+| AWS Textract OCR, Azure OpenAI embeddings | **Implemented**, tested with stubbed clients; **not yet run against live services** (the test account had no Textract subscription; the failure surfaced as a clean provider error) |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
 | GitHub Actions CI | **Implemented** and passing on GitHub (quality + Docker jobs) |
@@ -559,29 +560,44 @@ make demo         # terminal 2: uploads 6 PDFs, processes, asks questions, revie
 DOCINTEL_LLM_PROVIDER=bedrock
 DOCINTEL_EMBEDDING_PROVIDER=bedrock          # optional; hashing also works
 DOCINTEL_AWS_REGION=us-east-1
-DOCINTEL_BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
+DOCINTEL_BEDROCK_MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0
 DOCINTEL_BEDROCK_EMBEDDING_MODEL_ID=amazon.titan-embed-text-v2:0
 DOCINTEL_OCR_PROVIDER=textract               # optional: OCR via Textract
 ```
 
-Credentials come from the standard AWS chain (environment, `AWS_PROFILE`, SSO, instance or task
-role). The application never reads AWS keys from its own configuration. A least-privilege IAM
-policy:
+Credentials come from the standard AWS chain (`aws configure`, environment, `AWS_PROFILE`, SSO,
+instance or task role). The application never reads AWS keys from its own configuration, so
+they never belong in `.env`. Use a dedicated IAM user or role with a least-privilege policy:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
-    {"Effect": "Allow", "Action": ["bedrock:InvokeModel"],
+    {"Sid": "InvokeClaude", "Effect": "Allow", "Action": "bedrock:InvokeModel",
      "Resource": [
-       "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0",
-       "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"]},
-    {"Effect": "Allow", "Action": ["textract:DetectDocumentText"], "Resource": "*"}
+       "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-*",
+       "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+       "arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0"]},
+    {"Sid": "TextractOCR", "Effect": "Allow", "Action": "textract:DetectDocumentText",
+     "Resource": "*"}
   ]
 }
 ```
 
-Enable access to the chosen model in the Bedrock console for the target region.
+- **Model ID.** Newer Claude models (Haiku 4.5, Sonnet 4.x) can't be invoked on demand by their
+  base ID; use the cross-region inference profile ID shown under **Bedrock → Inference
+  profiles** (for example `us.anthropic.claude-haiku-4-5-20251001-v1:0`). A `us.` profile routes
+  requests across several US regions, which is why the policy uses `*` for the region; tighten
+  it to the regions listed on the profile if required. Anthropic models also ask for a one-time
+  use-case form per AWS account.
+- **Smoke test** before running the app:
+
+  ```bash
+  aws sts get-caller-identity
+  aws bedrock-runtime converse --region us-east-1 \
+    --model-id us.anthropic.claude-haiku-4-5-20251001-v1:0 \
+    --messages '[{"role":"user","content":[{"text":"Reply with OK"}]}]'
+  ```
 
 - **Chat adapter.** It uses `ChatBedrockConverse` with `temperature=0` and the configured
   `max_tokens`. Token usage from each response feeds the invocation ledger and the cost estimate
@@ -877,11 +893,12 @@ and metrics** work end to end, not that any model is accurate. The useful signal
 Real-model quality must be measured on a representative, labelled corpus with a baseline for
 each provider ([ADR-006](docs/adr/ADR-006-evaluation-methodology.md)).
 
-### Real-model results (Azure OpenAI gpt-4.1-mini)
+### Real-model results (Azure OpenAI and AWS Bedrock)
 
 The same harness was run against a live Azure OpenAI `gpt-4.1-mini` deployment (Global
-Standard), with offline hashing embeddings and the same datasets. Configure the provider in `.env`
-and run `make eval` to reproduce it.
+Standard), with offline hashing embeddings and the same datasets (rounds 1 and 2), and then
+against AWS Bedrock (round 3). Configure the provider in `.env` and run `make eval` to reproduce
+it.
 
 #### Round 1: the original 20 documents
 
@@ -982,6 +999,35 @@ Prompt versions are classification / extraction. A full run takes 3–4 minutes.
   after a partial payment (2,113.25). The document still goes to review, because subtotal plus
   tax doesn't reconcile. Fixing this properly means defining `amount_due` precisely in the
   schema.
+
+#### Round 3: AWS Bedrock, same 30 documents, no code or prompt changes
+
+Claude Haiku 4.5 (inference profile `us.anthropic.claude-haiku-4-5-20251001-v1:0`), run once
+with the offline hashing embeddings and once with Titan Text Embeddings V2.
+
+| Metric | gpt-4.1-mini (Azure) | Haiku 4.5 + hashing | Haiku 4.5 + Titan V2 |
+|---|---|---|---|
+| classification.accuracy | 1.00 | 1.00 | 1.00 |
+| extraction.normalized_match | 0.989 | **0.995** | **0.995** |
+| extraction.missing / hallucinated field rate | 0.00 / 0.00 | 0.00 / 0.00 | 0.00 / 0.00 |
+| answers.completeness / groundedness / citation correctness | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 |
+| answers.false refusal / correct refusal | 0.00 / 1.00 | 0.00 / 1.00 | 0.00 / 1.00 |
+| retrieval.mrr | 0.951 | 0.951 | **0.979** |
+| workflow.routing_accuracy | 1.00 | 1.00 | 1.00 |
+| Quality gate | passed | passed | passed |
+| Run time | ~3.5 min | 2.4 min | 2.6 min |
+
+- **The provider swap was configuration only.** Same prompts (classification v1.1.0, extraction
+  v1.2.0), same validators, same gate. That is the point of the provider seam
+  ([ADR-003](docs/adr/ADR-003-provider-abstraction.md)).
+- **Haiku 4.5 got the partial-payment invoice right** (`amount_due` 2,113.25) and kept the true
+  0.85% fee on the injected factsheet. Its one miss is the same "FY2025" period as gpt-4.1-mini.
+- **Semantic embeddings improved ranking** (MRR 0.951 → 0.979). precision@k doesn't move,
+  because most queries have one relevant chunk and k = 4, which caps it near 0.25; it measures
+  the retrieval budget more than quality on this corpus.
+- **Textract was not verified**: the test account returned `SubscriptionRequiredException`
+  (the service hadn't been activated for it). The adapter surfaced this as a provider error, so
+  a scanned document would route to review rather than fail silently.
 
 Thirty synthetic documents are still far too few to claim production accuracy. What these runs
 show is that the real integration works end to end, and that the evaluation loop surfaces real
@@ -1148,9 +1194,10 @@ More detail in the [architecture decision records](docs/adr).
 ## 23. Known limitations
 
 - Mock-mode metrics describe the pipeline on synthetic data, not model accuracy.
-- Azure OpenAI chat has been verified live (`gpt-4.1-mini`). The Bedrock, Textract and cloud
-  embedding paths, and Azure reasoning-model mode, are implemented and unit-tested with fakes and
-  stubs, but have not been run against live services.
+- Azure OpenAI chat (`gpt-4.1-mini`), Bedrock chat (Claude Haiku 4.5) and Bedrock Titan
+  embeddings have been verified live. Textract OCR, Azure OpenAI embeddings and Azure
+  reasoning-model mode are implemented and tested with stubs, but have not been run against live
+  services.
 - The real-model evaluation uses the same 30 synthetic documents and 27 questions as mock mode.
   That proves the integration and catches real failure modes, but it is far too small to measure
   production accuracy.

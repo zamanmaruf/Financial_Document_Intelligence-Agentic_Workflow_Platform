@@ -19,9 +19,12 @@ live** with a `gpt-4.1-mini` deployment over two rounds: 20 documents, then 30 d
 harder layouts, European number formats, an unsupported look-alike document and a subtler prompt
 injection. The final 30-document run passes the quality gate with classification 1.00,
 extraction normalised match 0.989, and no missing or hallucinated fields. The README's
-"Real-model results" section lists each issue those runs surfaced and how it was fixed. Bedrock,
-Textract, the cloud embedding adapters and Azure reasoning-model mode are implemented and
-unit-tested with fakes, but have not been run against live endpoints.
+"Real-model results" section lists each issue those runs surfaced and how it was fixed.
+**AWS Bedrock has also been verified live**: Claude Haiku 4.5 with Titan Text Embeddings V2
+passes the same gate on the same 30 documents with no code or prompt changes (extraction
+normalised match 0.995, retrieval MRR 0.979). Textract, Azure embeddings and Azure
+reasoning-model mode are implemented and tested with stubs, but have not been run against live
+endpoints.
 
 Final validation (this run): **310 tests passed, 1 skipped** locally (the skipped Tesseract test
 passes in the Docker image, which ships Tesseract), **94% line coverage**, ruff lint and format
@@ -90,11 +93,11 @@ LangChain is used only as an integration layer (adapters, `PromptTemplate`,
 
 | Integration | Status | Verification |
 |---|---|---|
-| AWS Bedrock — Claude chat | Implemented (`BedrockClaudeProvider`) | unit-tested with LangChain fake chat models; not called live |
-| AWS Bedrock — Titan embeddings | Implemented | construction/config tested; not called live |
+| AWS Bedrock — Claude chat | Implemented (`BedrockClaudeProvider`) | **verified live** (Claude Haiku 4.5 via the `us.` inference profile; full evaluation on 30 documents, gate passed) |
+| AWS Bedrock — Titan embeddings | Implemented | **verified live** (Titan Text Embeddings V2 in a full evaluation run; MRR 0.979) |
 | Azure OpenAI — chat | Implemented, config validated at start-up | **verified live** (`gpt-4.1-mini`, full evaluation on 30 documents, gate passed); reasoning mode verified only by asserting the request body |
 | Azure OpenAI — embeddings | Implemented | unit-tested with fakes; not called live (needs an embedding deployment) |
-| AWS Textract OCR | Implemented (`TextractOCRExtractor`) | integration test with a stubbed Textract client exercising real rendering + line assembly |
+| AWS Textract OCR | Implemented (`TextractOCRExtractor`) | integration test with a stubbed Textract client exercising real rendering + line assembly; a live call reached AWS but the test account had no Textract subscription (`SubscriptionRequiredException`, surfaced as a provider error) |
 | Tesseract OCR | Implemented | real OCR verified in the Docker image: scanned invoice → all 8 fields match ground truth |
 | Chroma | Implemented (persistent) | used in Docker/live runs and tests |
 | OpenTelemetry | Metrics API adapter | no exporter/MeterProvider configured by the app; tracing not implemented |
@@ -216,7 +219,7 @@ missing sentence-final account numbers, and reviewer corrections accepting inval
 
 ## 13. Known limitations
 
-Mock metrics are not model-quality evidence; Bedrock, Textract, cloud embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat is verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
+Mock metrics are not model-quality evidence; Textract, Azure embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat, Bedrock Claude and Titan embeddings are verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
 synchronous; SQLite and embedded Chroma are single-node; single-tenant; lexical hashing embeddings
 in mock mode; lexical groundedness misses paraphrase errors and can over-flag scale words;
 pattern-based injection detection; heuristic active-content scan; no tracing or exporter; no
