@@ -19,7 +19,13 @@ from app.core.errors import InvalidStateError, ProviderError
 from app.core.hashing import sha256_text
 from app.core.text import clean_line, content_tokens
 from app.domain.enums import ReviewReason, ReviewTargetType
-from app.domain.models import Citation, GroundednessReport, RAGAnswer, RetrievalResult
+from app.domain.models import (
+    DEFAULT_WORKSPACE,
+    Citation,
+    GroundednessReport,
+    RAGAnswer,
+    RetrievalResult,
+)
 from app.guardrails.injection import scan_for_injection
 from app.guardrails.policy import check_question, find_prohibited_claims
 from app.human_review.service import HumanReviewService
@@ -107,7 +113,10 @@ class RAGService:
         filters: MetadataFilterInput | None = None,
         top_k: int | None = None,
         actor: str = SYSTEM_ACTOR,
+        workspace_id: str | None = None,
     ) -> RAGAnswer:
+        """Answer from indexed evidence. ``workspace_id`` (demo visitors) restricts retrieval to
+        that workspace and tags the answer and any review case with it."""
         warnings: list[str] = []
         if document_id is not None:
             doc = self._documents.get(document_id)
@@ -137,13 +146,20 @@ class RAGService:
                 self._refusal(question, document_id, q_check.reason or "blocked", warnings),
                 actor,
                 reasons=[],
+                workspace_id=workspace_id,
             )
 
         retrieval = self._retriever.retrieve(
-            question, document_id=document_id, filters=filters, top_k=top_k
+            question,
+            document_id=document_id,
+            filters=filters,
+            top_k=top_k,
+            workspace_id=workspace_id,
         )
         if not retrieval.results:
-            return self._insufficient(question, document_id, retrieval, warnings, actor)
+            return self._insufficient(
+                question, document_id, retrieval, warnings, actor, workspace_id
+            )
 
         context, used = self._assemble_context(retrieval.results)
         if any(scan_for_injection(r.chunk.text).flagged for r in used):
@@ -173,7 +189,9 @@ class RAGService:
                 question, document_id, f"answer generation failed: {exc.error_type}", warnings
             )
             answer.retrieval_scores = retrieval.candidate_scores
-            return self._finalize(answer, actor, reasons=[ReviewReason.RETRIES_EXHAUSTED])
+            return self._finalize(
+                answer, actor, reasons=[ReviewReason.RETRIES_EXHAUSTED], workspace_id=workspace_id
+            )
 
         out = result.output
         base: dict[str, Any] = {
@@ -183,7 +201,9 @@ class RAGService:
             "is_mock": result.invocation.is_mock,
         }
         if out.insufficient_evidence:
-            return self._insufficient(question, document_id, retrieval, warnings, actor, base)
+            return self._insufficient(
+                question, document_id, retrieval, warnings, actor, workspace_id, base
+            )
 
         by_id = {r.chunk.chunk_id: r for r in used}
         cited = [by_id[cid] for cid in dict.fromkeys(out.cited_chunk_ids) if cid in by_id]
@@ -210,6 +230,7 @@ class RAGService:
                 actor,
                 reasons=[ReviewReason.WEAK_GROUNDING],
                 original={"answer": out.answer, "cited_chunk_ids": out.cited_chunk_ids},
+                workspace_id=workspace_id,
             )
 
         citations = [
@@ -256,6 +277,7 @@ class RAGService:
                 actor,
                 reasons=review_reasons,
                 original={"answer": out.answer, "cited_chunk_ids": out.cited_chunk_ids},
+                workspace_id=workspace_id,
             )
 
         if grounded.score < self._s.groundedness_min:
@@ -279,7 +301,7 @@ class RAGService:
             embedding_model=self._embedding_model,
             **base,
         )
-        return self._finalize(answer, actor, reasons=reasons)
+        return self._finalize(answer, actor, reasons=reasons, workspace_id=workspace_id)
 
     # ------------------------------------------------------------------ helpers
 
@@ -343,6 +365,7 @@ class RAGService:
         retrieval: RetrievalOutcome,
         warnings: list[str],
         actor: str,
+        workspace_id: str | None,
         base: dict[str, Any] | None = None,
     ) -> RAGAnswer:
         answer = self._refusal(
@@ -357,7 +380,7 @@ class RAGService:
         reasons = (
             [ReviewReason.INSUFFICIENT_EVIDENCE] if self._s.review_on_insufficient_evidence else []
         )
-        return self._finalize(answer, actor, reasons=reasons)
+        return self._finalize(answer, actor, reasons=reasons, workspace_id=workspace_id)
 
     def _finalize(
         self,
@@ -365,7 +388,9 @@ class RAGService:
         actor: str,
         reasons: list[ReviewReason],
         original: dict[str, Any] | None = None,
+        workspace_id: str | None = None,
     ) -> RAGAnswer:
+        answer.workspace_id = workspace_id or DEFAULT_WORKSPACE
         if reasons:
             case = self._reviews.create_case(
                 target_type=ReviewTargetType.ANSWER,
@@ -379,6 +404,7 @@ class RAGService:
                 model_version=answer.model_name,
                 prompt_version=answer.prompt_version,
                 document_id=answer.document_id,
+                workspace_id=answer.workspace_id,
             )
             answer.review_id = case.review_id
             answer.requires_review = True

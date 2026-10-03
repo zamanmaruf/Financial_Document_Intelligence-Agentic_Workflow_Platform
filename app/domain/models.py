@@ -25,6 +25,9 @@ from app.domain.enums import (
 
 FieldValue = float | str | None
 
+# Workspace for everything not created by a public-demo visitor (local use, API-key operators).
+DEFAULT_WORKSPACE = "default"
+
 
 class DomainModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -85,6 +88,7 @@ class Document(DomainModel):
     char_count: int | None = None
     current_workflow_id: str | None = None
     security_flags: list[str] = Field(default_factory=list)
+    workspace_id: str = DEFAULT_WORKSPACE
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
@@ -195,6 +199,7 @@ class RAGAnswer(DomainModel):
     prompt_version: str
     embedding_model: str
     is_mock: bool = False
+    workspace_id: str = DEFAULT_WORKSPACE
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -216,6 +221,7 @@ class ReviewCase(DomainModel):
     reviewer_comment: str | None = None
     model_version: str
     prompt_version: str
+    workspace_id: str = DEFAULT_WORKSPACE
     created_at: datetime = Field(default_factory=utcnow)
     resolved_at: datetime | None = None
 

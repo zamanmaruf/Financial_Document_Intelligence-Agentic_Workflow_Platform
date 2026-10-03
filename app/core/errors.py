@@ -98,3 +98,12 @@ class AuthorizationError(DocIntelError):
 class AuthenticationError(DocIntelError):
     error_type = "unauthenticated"
     http_status = 401
+
+
+class RateLimitedError(DocIntelError):
+    error_type = "rate_limited"
+    http_status = 429
+
+    def __init__(self, message: str, retry_after_s: int) -> None:
+        super().__init__(message)
+        self.retry_after_s = retry_after_s

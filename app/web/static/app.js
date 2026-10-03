@@ -62,7 +62,7 @@ function toast(message, isError = false) {
 
 // ------------------------------------------------------------------ API client
 
-async function api(path, options = {}) {
+async function api(path, options = {}, retried = false) {
   const headers = new Headers(options.headers || {});
   const key = sessionStorage.getItem("docintel_api_key");
   if (key) headers.set("X-API-Key", key);
@@ -71,6 +71,12 @@ async function api(path, options = {}) {
     options.body = JSON.stringify(options.json);
   }
   const response = await fetch(path, { ...options, headers });
+  // In public demo mode, visitors without an API key get a session cookie (scoped to their own
+  // workspace) on demand; outside demo mode the endpoint does not exist and the 401 stands.
+  if (response.status === 401 && !key && !retried) {
+    const session = await fetch("/demo/session", { method: "POST" });
+    if (session.ok) return api(path, options, true);
+  }
   const text = await response.text();
   let body = null;
   try {

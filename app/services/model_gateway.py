@@ -126,6 +126,7 @@ class ModelGateway:
         input_tokens = output_tokens = 0
         tokens_estimated = False
         last_error: Exception | None = None
+        last_response: LLMResponse | None = None
 
         for repair_attempt in range(self._json_repair_attempts + 1):
             try:
@@ -143,8 +144,10 @@ class ModelGateway:
                     workflow_id,
                     success=False,
                     error_type=exc.error_type,
+                    served_by=last_response,
                 )
                 raise
+            last_response = response
             retries += attempt_retries + (1 if repair_attempt else 0)
             input_tokens += response.input_tokens
             output_tokens += response.output_tokens
@@ -174,6 +177,7 @@ class ModelGateway:
                 workflow_id,
                 success=True,
                 error_type=None,
+                served_by=response,
             )
             return GatewayResult(output=output, invocation=invocation, prompt=spec)
 
@@ -189,6 +193,7 @@ class ModelGateway:
             workflow_id,
             success=False,
             error_type=ProviderResponseError.error_type,
+            served_by=last_response,
         )
         raise ProviderResponseError(
             f"{operation}: model output failed schema validation after "
@@ -236,14 +241,26 @@ class ModelGateway:
         workflow_id: str | None,
         success: bool,
         error_type: str | None,
+        served_by: LLMResponse | None = None,
     ) -> ModelInvocation:
         latency_ms = round((time.perf_counter() - started) * 1000, 3)
-        provider = self.provider
+        # Identity comes from the response when there is one: a wrapping provider (the demo
+        # budget cap) may have routed the call to a different underlying model.
+        if served_by is not None:
+            provider_name, model_name, is_mock = (
+                served_by.provider,
+                served_by.model_name,
+                served_by.is_mock,
+            )
+        else:
+            provider_name = self.provider.provider_name
+            model_name = self.provider.model_name
+            is_mock = self.provider.is_mock
         inv = ModelInvocation(
             invocation_id=new_id("inv"),
             operation=operation,
-            provider=provider.provider_name,
-            model_name=provider.model_name,
+            provider=provider_name,
+            model_name=model_name,
             prompt_name=spec.name,
             prompt_version=spec.version,
             prompt_hash=spec.hash,
@@ -253,13 +270,11 @@ class ModelGateway:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             tokens_estimated=tokens_estimated,
-            estimated_cost_usd=self._cost.estimate(
-                provider.model_name, input_tokens, output_tokens
-            ),
+            estimated_cost_usd=self._cost.estimate(model_name, input_tokens, output_tokens),
             retry_count=retries,
             success=success,
             error_type=error_type,
-            is_mock=provider.is_mock,
+            is_mock=is_mock,
         )
         try:
             self._invocations.save(inv)

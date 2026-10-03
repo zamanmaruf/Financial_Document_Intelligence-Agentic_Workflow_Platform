@@ -26,9 +26,16 @@ normalised match 0.995, retrieval MRR 0.979). Textract, Azure embeddings and Azu
 reasoning-model mode are implemented and tested with stubs, but have not been run against live
 endpoints.
 
-Final validation (this run): **311 tests passed, 1 skipped** locally (the skipped Tesseract test
-passes in the Docker image, which ships Tesseract), **94% line coverage**, ruff lint and format
-clean, **mypy `--strict` clean on 88 files**, **quality gate PASSED (27 checks)** in mock mode.
+A **public guided demo site** was added afterwards: a React landing page, an eight-step guided
+tour and a playground for non-technical visitors. It's served by the same container in an opt-in
+demo mode with per-visitor workspaces, rate limits, a daily live-AI budget and 24-hour retention.
+It also has an AWS deployment template that hasn't been deployed yet (section 20).
+
+Final validation (this run): **352 Python tests passed, 1 skipped** locally (the skipped
+Tesseract test passes in the Docker image, which ships Tesseract), **95% line coverage**, ruff lint
+and format clean, **mypy `--strict` clean on 96 files**, **quality gate PASSED (27 checks)** in
+mock mode. Web: ESLint, TypeScript and 9 Vitest tests pass, and all **10 Playwright browser tests**
+pass (the tour, axe accessibility scans and a mobile check).
 
 ## 2. Architecture
 
@@ -53,7 +60,10 @@ A FastAPI modular monolith with protocol-based seams at every external dependenc
 - **Operator console** (`app/web`) — static HTML/CSS/JS served at `/ui`, a client of the public
   API only, with a strict Content-Security-Policy (ADR-010).
 
-The Mermaid diagram is in README section 5; the decisions behind it are in `docs/adr/ADR-001` to `ADR-010`.
+- **Public demo** (`app/demo`, `web/`, `deploy/aws`) — opt-in demo mode for anonymous visitors
+  and a Vite + React site served at `/` (ADR-011).
+
+The Mermaid diagram is in README section 5; the decisions behind it are in `docs/adr/ADR-001` to `ADR-011`.
 
 ## 3. Features implemented
 
@@ -116,13 +126,15 @@ lexical hashing vectoriser. Every response and log line is labelled (`is_mock`, 
 
 | Suite | Tests | Result |
 |---|---|---|
-| Unit (`tests/unit`) | 177 | passed |
-| Integration (`tests/integration`) | 112 | 111 passed, 1 skipped locally (`requires_tesseract`) |
-| End-to-end API and console (`tests/e2e`) | 23 | passed |
-| **Total** | **312** | **311 passed, 1 skipped · 94% coverage (app)** |
+| Unit (`tests/unit`) | 178 | passed |
+| Integration (`tests/integration`) | 121 | 120 passed, 1 skipped locally (`requires_tesseract`) |
+| End-to-end API, console, demo mode and site serving (`tests/e2e`) | 54 | passed |
+| **Python total** | **353** | **352 passed, 1 skipped · 95% coverage (app)** |
+| Web unit (`web/src/**/*.test.ts`, Vitest) | 9 | passed |
+| Browser (`web/e2e`, Playwright: tour, axe, mobile) | 10 | passed (plus one screenshot spec, skipped unless `SCREENSHOTS=1`) |
 
 Static checks: `ruff check` and `ruff format --check` clean (app, scripts, tests); `mypy --strict`
-clean (88 source files). The console was also checked by hand in a browser against a mock-mode
+clean (96 source files); ESLint and `tsc` clean for `web/`; `cfn-lint` clean for the AWS template. The console was also checked by hand in a browser against a mock-mode
 server (upload, fields, Q&A, review queue; screenshots in `docs/images/`). Earlier manual
 validation: live Uvicorn + `scripts/demo.py`
 (no 5xx; the two 422s are intentional malformed-upload rejections), Docker build + container smoke
@@ -155,12 +167,15 @@ reported instead of the balance after partial payment) and are listed in the REA
 
 ## 9. CI/CD status
 
-`.github/workflows/ci.yml` defines two jobs: **quality** (Tesseract install, lock install, ruff,
-format check, mypy, unit, integration, e2e, offline evaluation, quality gate, report artifact)
-and **docker** (build, run, health smoke test, logs). Every command in these jobs was executed
-locally and passed, and the workflow's first run on GitHub passed both jobs
-([run 36735688189](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/runs/36735688189)). CD (registry
-push, promotion, deployment) is intentionally not implemented.
+`.github/workflows/ci.yml` originally defined two jobs: **quality** (Tesseract install, lock
+install, ruff, format check, mypy, unit, integration, e2e, offline evaluation, quality gate,
+report artifact) and **docker** (build, run, health smoke test, logs). The workflow's first run
+on GitHub passed both
+([run 36735688189](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/runs/36735688189)).
+The demo work adds **web** (ESLint, tsc, Vitest, build), **e2e** (Playwright against a demo-mode
+API) and **infra** (`cfn-lint`, deploy-script syntax) jobs, and the docker job now builds the
+multi-stage image and smoke-tests the site in demo mode. Every command in these jobs passed
+locally. Deployment is a manual `make deploy`, not a CI step.
 
 ## 10. Security
 
@@ -173,9 +188,17 @@ citation binding, groundedness, no model-initiated actions); PII masking in logs
 extracted account numbers; hash-chained audit; non-root, read-only container with
 `no-new-privileges`.
 
-Not implemented (documented in ADR-009 and README section 21): encryption at rest, TLS termination,
-retention/deletion policies and endpoints, data-residency enforcement, multi-tenancy, SSO/OIDC,
-rate limiting, malware scanning. Raw document text is stored unmasked and sent in full to the
+Demo mode adds: HMAC-signed visitor sessions bound to private workspaces (404 on
+cross-workspace access, retrieval filtered by workspace on the server), operator endpoints closed
+to visitors, in-memory per-visitor and per-IP rate limits with `429` + `Retry-After`, a daily
+live-model budget with a labelled offline fallback, smaller upload caps, 24-hour purging of
+visitor data, and a strict-CSP site that renders document text as text only (enforced by lint
+rules).
+
+Not implemented (documented in ADR-009 and README section 21): encryption at rest, TLS inside the
+app (the AWS template terminates TLS at CloudFront), retention/deletion policies outside demo
+mode, data-residency enforcement, multi-tenancy for API-key users, SSO/OIDC, distributed rate
+limiting or WAF, malware scanning. Raw document text is stored unmasked and sent in full to the
 configured model provider. No regulatory certification is claimed.
 
 ## 11. Observability
@@ -275,7 +298,9 @@ make install                      # .venv (Python 3.12) + package + dev tools
 make dev                          # API on http://127.0.0.1:8000 (console at /ui, OpenAPI at /docs)
 make demo                         # live walkthrough (requires `make dev` in another terminal)
 make lint typecheck               # ruff + mypy --strict
-make test                         # 312 tests with coverage
+make test                         # 353 Python tests with coverage
+make web && make demo-site        # build the demo site; serve it at http://127.0.0.1:8000/
+make web-check && make web-e2e    # web lint/types/unit/build; Playwright browser tests
 make eval && make gate            # evaluation report + quality gate
 make drift                        # drift report (reports/drift_report.md + .json)
 make docker && make docker-run    # build image; docker compose up
@@ -323,3 +348,35 @@ fin-docintel:local .`.
 Further detail: `README.md`, `docs/adr/`, `docs/interview-guide.md` (40 topics),
 `docs/interview-questions.md` (112 questions), `docs/codebase-walkthrough.md`,
 `docs/fine-tuning-pathway.md`.
+
+## 20. Addendum: public guided demo site (2026-10-03)
+
+**What was built**
+
+| Part | Status |
+|---|---|
+| Demo mode (`DOCINTEL_DEMO_MODE`): signed visitor cookie, workspace-scoped reviewer principal, operator endpoints closed to visitors | implemented, e2e-tested (tampered and expired cookies, 403s, demo-off behaviour unchanged) |
+| Workspaces on documents, reviews, answers and chunks; per-workspace dedup; 404 ownership checks; server-side retrieval filter; SQLite migration with `schema_meta` | implemented, tested (isolation across list, get, ask, review and corpus retrieval; legacy-database migration) |
+| Allow-listed samples (`/demo/samples`), background processing with progress polling, per-document audit verification | implemented, tested |
+| Limits (per visitor and per IP), daily live-AI budget with labelled offline fallback, 24-hour retention task | implemented, tested |
+| React site (`web/`): landing, eight-step tour, playground, how-it-works, glossary tooltips, live/offline badge | implemented; Playwright runs the whole tour against the real API; axe finds no serious or critical WCAG 2.1 AA issues on any page; checked by hand in a browser against the Docker image |
+| Serving at `/` (SPA fallback, strict CSP, immutable asset caching) and a multi-stage Dockerfile | implemented, tested; image built and smoke-tested locally |
+| CI: web, e2e, infra jobs; docker job smoke-tests the site | written; every command passes locally |
+| AWS: CloudFormation template, `deploy.sh`, runbook | written, `cfn-lint` clean; **not deployed**, so there is no public URL yet |
+
+**Differences from the plan:** background processing is
+`POST /documents/{id}/process/background` rather than a query flag; a per-document audit
+verification endpoint was added for visitors; the audit trail keeps filenames, decisions and short
+flagged excerpts (the plan said "no document text"; "no page text" is accurate); the site is
+served only in demo mode; and expected hosting cost is about $45 a month rather than $25–35,
+mainly because of public IPv4 address charges and the ALB's fixed price. Details are in ADR-011.
+
+**Found and fixed while testing in a real browser:** the tour said the audit trail records
+every AI call, but model calls go to the separate invocation ledger, so the copy was corrected;
+two colour-contrast failures (4.48:1) and an unlabelled file input were caught by axe; amounts
+with cents now show two decimals (`1,985.50`); and the console at `/ui` now starts a visitor
+session when demo mode requires one.
+
+**Still to do (owner action):** run the first `make deploy` with an admin AWS profile, confirm
+the budget-alert email, take the tour on the live URL with the badge reading **Live AI**, and add
+the URL to the README.

@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import threading
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.errors import DocumentNotFoundError, ReviewNotFoundError
 from app.domain.enums import ReviewStatus
 from app.domain.models import (
+    DEFAULT_WORKSPACE,
     AuditEvent,
     Document,
     EvaluationResult,
@@ -50,6 +52,7 @@ class DocumentRepository(_Repo):
             s.add(
                 DocumentRow(
                     document_id=doc.document_id,
+                    workspace_id=doc.workspace_id,
                     sha256=doc.metadata.sha256,
                     status=doc.status.value,
                     document_type=doc.document_type.value if doc.document_type else None,
@@ -76,18 +79,25 @@ class DocumentRepository(_Repo):
                 raise DocumentNotFoundError(f"document {document_id} not found")
             return Document.model_validate(row.payload)
 
-    def find_by_sha256(self, sha256: str) -> Document | None:
+    def find_by_sha256(self, sha256: str, workspace_id: str = DEFAULT_WORKSPACE) -> Document | None:
         with self._sf() as s:
-            row = s.scalars(select(DocumentRow).where(DocumentRow.sha256 == sha256)).first()
+            row = s.scalars(
+                select(DocumentRow).where(
+                    DocumentRow.sha256 == sha256, DocumentRow.workspace_id == workspace_id
+                )
+            ).first()
             return Document.model_validate(row.payload) if row else None
 
-    def list_page(self, limit: int = 100, offset: int = 0) -> list[Document]:
+    def list_page(
+        self, limit: int = 100, offset: int = 0, workspace_id: str | None = None
+    ) -> list[Document]:
+        """Newest first; ``workspace_id=None`` lists every workspace (operators only)."""
         with self._sf() as s:
+            q = select(DocumentRow)
+            if workspace_id is not None:
+                q = q.where(DocumentRow.workspace_id == workspace_id)
             rows = s.scalars(
-                select(DocumentRow)
-                .order_by(DocumentRow.created_at.desc())
-                .limit(limit)
-                .offset(offset)
+                q.order_by(DocumentRow.created_at.desc()).limit(limit).offset(offset)
             ).all()
             return [Document.model_validate(r.payload) for r in rows]
 
@@ -169,6 +179,7 @@ class ReviewRepository(_Repo):
             s.merge(
                 ReviewRow(
                     review_id=case.review_id,
+                    workspace_id=case.workspace_id,
                     document_id=case.document_id,
                     status=case.status.value,
                     target_type=case.target_type.value,
@@ -190,9 +201,12 @@ class ReviewRepository(_Repo):
         document_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        workspace_id: str | None = None,
     ) -> list[ReviewCase]:
         with self._sf() as s:
             q = select(ReviewRow)
+            if workspace_id is not None:
+                q = q.where(ReviewRow.workspace_id == workspace_id)
             if status is not None:
                 q = q.where(ReviewRow.status == status.value)
             if document_id is not None:
@@ -262,6 +276,17 @@ class InvocationRepository(_Repo):
         with self._sf() as s:
             return int(s.scalar(select(func.count()).select_from(InvocationRow)) or 0)
 
+    def live_cost_since(self, since: datetime) -> float:
+        """Estimated USD spent on non-mock model calls recorded at or after ``since``."""
+        with self._sf() as s:
+            rows = s.scalars(select(InvocationRow).where(InvocationRow.created_at >= since))
+            total = 0.0
+            for row in rows:
+                inv = row.payload
+                if not inv.get("is_mock", False):
+                    total += float(inv.get("estimated_cost_usd") or 0.0)
+            return total
+
 
 class AnswerRepository(_Repo):
     def save(self, answer: RAGAnswer) -> None:
@@ -269,6 +294,7 @@ class AnswerRepository(_Repo):
             s.merge(
                 AnswerRow(
                     answer_id=answer.answer_id,
+                    workspace_id=answer.workspace_id,
                     document_id=answer.document_id,
                     created_at=answer.created_at,
                     payload=_dump(answer),
@@ -300,3 +326,44 @@ class EvaluationRepository(_Repo):
                 select(EvaluationRow).order_by(EvaluationRow.created_at.desc()).limit(limit)
             ).all()
             return [EvaluationResult.model_validate(r.payload) for r in rows]
+
+
+class RetentionRepository(_Repo):
+    """Deletes expired public-demo visitor data. The default workspace is never touched.
+
+    Audit events are append-only and are kept (see ``app.demo.retention``).
+    """
+
+    def expired_document_ids(self, cutoff: datetime) -> list[str]:
+        with self._sf() as s:
+            return list(
+                s.scalars(
+                    select(DocumentRow.document_id).where(
+                        DocumentRow.workspace_id != DEFAULT_WORKSPACE,
+                        DocumentRow.created_at < cutoff,
+                    )
+                )
+            )
+
+    def purge(self, document_ids: list[str], cutoff: datetime) -> dict[str, int]:
+        """Delete the given documents with their derived rows, plus expired visitor
+        reviews and answers. Returns deleted row counts per table."""
+        counts: dict[str, int] = {}
+        with self._sf.begin() as s:
+            for name, model in (
+                ("document_texts", DocumentTextRow),
+                ("extractions", ExtractionRow),
+                ("workflows", WorkflowRow),
+                ("documents", DocumentRow),
+            ):
+                result = s.execute(delete(model).where(model.document_id.in_(document_ids)))
+                counts[name] = int(getattr(result, "rowcount", 0) or 0)
+            for name, row_model in (("reviews", ReviewRow), ("answers", AnswerRow)):
+                result = s.execute(
+                    delete(row_model).where(
+                        row_model.workspace_id != DEFAULT_WORKSPACE,
+                        (row_model.created_at < cutoff) | row_model.document_id.in_(document_ids),
+                    )
+                )
+                counts[name] = int(getattr(result, "rowcount", 0) or 0)
+        return counts

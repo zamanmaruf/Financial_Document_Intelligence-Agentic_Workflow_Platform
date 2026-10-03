@@ -209,7 +209,9 @@ class DocumentWorkflow:
 
             # 5. chunk + index
             try:
-                chunks = self._chunker.chunk(document_id, text, doc.document_type)
+                chunks = self._chunker.chunk(
+                    document_id, text, doc.document_type, workspace_id=doc.workspace_id
+                )
                 n_chunks = self._indexer.index(document_id, chunks)
             except (VectorStoreError, ProviderError) as exc:
                 return self._fail(doc, state, exc, started)
@@ -390,6 +392,7 @@ class DocumentWorkflow:
             document_id=doc.document_id,
             workflow_id=state.workflow_id,
             details=details,
+            workspace_id=doc.workspace_id,
         )
         state.review_id = case.review_id
         state.review_reasons = case.reasons

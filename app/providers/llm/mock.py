@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 
 from app.core.errors import ProviderConfigurationError, ProviderError
@@ -37,7 +38,8 @@ class MockLLMProvider:
         self._delay_s = delay_s
         self._error_factory = error_factory or (lambda: ProviderError("injected mock failure"))
         self._lock = threading.Lock()
-        self.calls: list[LLMRequest] = []
+        # recent requests, for test assertions; bounded so long-running servers do not grow
+        self.calls: deque[LLMRequest] = deque(maxlen=256)
 
     @property
     def provider_name(self) -> str:

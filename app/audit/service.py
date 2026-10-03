@@ -56,6 +56,17 @@ class AuditService:
     def history(self, document_id: str | None = None, limit: int = 1000) -> list[AuditEvent]:
         return self._repo.events(document_id=document_id, limit=limit)
 
+    def verify_events(self, events: list[AuditEvent]) -> tuple[bool, int | None]:
+        """Check each event's hash against its own content and stored ``prev_hash``.
+
+        Detects edits to these events without walking the whole chain (``verify_chain`` also
+        checks the links between consecutive events).
+        """
+        for event in events:
+            if _hash_event(event, event.prev_hash) != event.event_hash:
+                return False, event.sequence
+        return True, None
+
     def verify_chain(self) -> tuple[bool, int | None]:
         """Recompute the full chain. Returns (ok, first_broken_sequence)."""
         prev = ""

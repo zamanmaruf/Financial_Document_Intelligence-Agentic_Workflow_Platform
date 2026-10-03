@@ -142,9 +142,30 @@ class Settings(BaseSettings):
 
     # --- security --------------------------------------------------------------
     ui_enabled: bool = True  # serve the static operator console at /ui
+    # Built public demo site (npm run build in web/); served at / in demo mode when it exists.
+    site_dir: Path = PROJECT_ROOT / "web" / "dist"
     auth_enabled: bool = False
     # JSON object mapping API key -> role, e.g. {"dev-reviewer-key": "reviewer"}
     api_keys_json: SecretStr | None = None
+
+    # --- public demo -----------------------------------------------------------
+    # Demo mode serves anonymous visitors: each gets a signed session cookie bound to a private
+    # workspace, per-visitor/IP limits apply and live LLM spend is capped per UTC day.
+    demo_mode: bool = False
+    demo_secret: SecretStr | None = None  # HMAC key for session cookies (>= 32 chars)
+    demo_cookie_secure: bool = True  # set False only for plain-http local testing
+    demo_session_ttl_hours: int = Field(default=24, ge=1, le=168)
+    demo_retention_hours: int = Field(default=24, ge=1, le=720)
+    demo_docs_per_session_day: int = Field(default=6, ge=1)
+    demo_questions_per_session_day: int = Field(default=25, ge=1)
+    demo_sessions_per_ip_hour: int = Field(default=5, ge=1)
+    demo_requests_per_ip_minute: int = Field(default=120, ge=10)
+    demo_daily_budget_usd: float = Field(default=2.0, ge=0.0)
+    demo_max_upload_mb: float = Field(default=5.0, gt=0.0)
+    demo_max_pages: int = Field(default=10, ge=1)
+    # Number of reverse proxies in front of the app (CloudFront + ALB = 2). The client IP is
+    # taken from X-Forwarded-For only when this is > 0; 0 means use the socket peer address.
+    demo_trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
 
     @field_validator("chunk_overlap")
     @classmethod
@@ -166,6 +187,10 @@ class Settings(BaseSettings):
             )
         if self.auth_enabled and not self.api_key_roles():
             raise ValueError("auth_enabled requires DOCINTEL_API_KEYS_JSON with at least one key")
+        if self.demo_mode and (
+            self.demo_secret is None or len(self.demo_secret.get_secret_value()) < 32
+        ):
+            raise ValueError("demo_mode requires DOCINTEL_DEMO_SECRET of at least 32 characters")
         return self
 
     @property
@@ -176,7 +201,16 @@ class Settings(BaseSettings):
 
     @property
     def max_upload_bytes(self) -> int:
-        return int(self.max_upload_mb * 1024 * 1024)
+        mb = (
+            min(self.max_upload_mb, self.demo_max_upload_mb)
+            if self.demo_mode
+            else self.max_upload_mb
+        )
+        return int(mb * 1024 * 1024)
+
+    @property
+    def effective_max_pages(self) -> int:
+        return min(self.max_pages, self.demo_max_pages) if self.demo_mode else self.max_pages
 
     @property
     def is_mock_mode(self) -> bool:
@@ -208,6 +242,7 @@ class Settings(BaseSettings):
             "answer_min_confidence": self.answer_min_confidence,
             "groundedness_min": self.groundedness_min,
             "auth_enabled": self.auth_enabled,
+            "demo_mode": self.demo_mode,
         }
 
 

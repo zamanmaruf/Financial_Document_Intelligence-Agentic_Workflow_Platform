@@ -11,7 +11,7 @@ from app.audit.service import SYSTEM_ACTOR, AuditService
 from app.core.clock import new_id
 from app.core.errors import InvalidDocumentError
 from app.core.hashing import sha256_bytes
-from app.domain.models import Document, DocumentMetadata
+from app.domain.models import DEFAULT_WORKSPACE, Document, DocumentMetadata
 from app.ingestion.pdf import inspect_pdf
 from app.observability.logging import log_event
 from app.observability.metrics import MetricsRecorder
@@ -80,6 +80,7 @@ class IngestionService:
         content_type: str | None,
         data: bytes,
         actor: str = SYSTEM_ACTOR,
+        workspace_id: str = DEFAULT_WORKSPACE,
     ) -> UploadOutcome:
         try:
             name = self.validate(filename, content_type, data)
@@ -101,7 +102,7 @@ class IngestionService:
             raise
 
         digest = sha256_bytes(data)
-        existing = self._documents.find_by_sha256(digest)
+        existing = self._documents.find_by_sha256(digest, workspace_id)
         if existing is not None:
             self._metrics.increment("documents_duplicate_total")
             self._audit.record(
@@ -128,6 +129,7 @@ class IngestionService:
                 pdf_title=inspection.title,
             ),
             security_flags=flags,
+            workspace_id=workspace_id,
         )
         self._documents.add(doc)
         self._metrics.increment("documents_uploaded_total")

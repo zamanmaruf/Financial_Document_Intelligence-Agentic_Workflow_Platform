@@ -288,3 +288,20 @@ class TestStateMachine:
         events = container.audit.history(document_id=doc.document_id)
         assert events[-1].event_type == "workflow.transition"
         assert events[-1].details["to"] == "FAILED"
+
+
+def test_verify_events_detects_an_edited_document_event(tmp_path: Path) -> None:
+    from app.audit.service import AuditService
+    from app.persistence.db import AuditRow, create_db_engine, make_session_factory
+    from app.persistence.repositories import AuditRepository
+
+    sf = make_session_factory(create_db_engine(f"sqlite:///{tmp_path / 'a.db'}"))
+    audit = AuditService(AuditRepository(sf))
+    audit.record("document.uploaded", document_id="doc_1", details={"filename": "a.pdf"})
+    audit.record("workflow.started", document_id="doc_1")
+    assert audit.verify_events(audit.history(document_id="doc_1")) == (True, None)
+    with sf.begin() as s:
+        row = s.query(AuditRow).filter_by(event_type="document.uploaded").one()
+        row.payload = {**row.payload, "details": {"filename": "forged.pdf"}}
+    ok, broken = audit.verify_events(audit.history(document_id="doc_1"))
+    assert not ok and broken == 1

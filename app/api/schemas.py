@@ -64,9 +64,12 @@ class DocumentResponse(BaseModel):
     current_workflow_id: str | None
     created_at: datetime
     updated_at: datetime
+    processing: bool = Field(
+        default=False, description="True while a background processing run is active"
+    )
 
     @classmethod
-    def from_domain(cls, doc: Document) -> DocumentResponse:
+    def from_domain(cls, doc: Document, processing: bool = False) -> DocumentResponse:
         return cls(
             document_id=doc.document_id,
             filename=doc.metadata.filename,
@@ -83,6 +86,7 @@ class DocumentResponse(BaseModel):
             current_workflow_id=doc.current_workflow_id,
             created_at=doc.created_at,
             updated_at=doc.updated_at,
+            processing=processing,
         )
 
 
@@ -203,7 +207,7 @@ class ReviewResponse(BaseModel):
 
     @classmethod
     def from_domain(cls, r: ReviewCase) -> ReviewResponse:
-        return cls(**r.model_dump(exclude={"workflow_id"}))
+        return cls(**r.model_dump(exclude={"workflow_id", "workspace_id"}))
 
 
 class ReviewListResponse(BaseModel):
@@ -237,3 +241,7 @@ class AuditResponse(BaseModel):
 class AuditVerifyResponse(BaseModel):
     valid: bool
     first_broken_sequence: int | None
+
+
+class DocumentAuditVerifyResponse(AuditVerifyResponse):
+    checked_events: int

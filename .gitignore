@@ -30,3 +30,9 @@ reports/
 .DS_Store
 .idea/
 .vscode/
+
+# Web front end
+web/node_modules/
+web/dist/
+web/playwright-report/
+web/test-results/

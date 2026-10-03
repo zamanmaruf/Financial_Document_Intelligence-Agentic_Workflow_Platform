@@ -27,7 +27,8 @@ It runs **fully offline in mock mode** with no cloud credentials. Configuration 
 
 | | |
 |---|---|
-| **Tests** | 312: 177 unit · 112 integration · 23 end-to-end. 311 pass; 1 skips when Tesseract isn't installed |
+| **Tests** | Python: 353 (178 unit · 121 integration · 54 end-to-end); 352 pass, 1 skips when Tesseract isn't installed. Web: 9 unit (Vitest) + 10 browser tests (Playwright, including axe accessibility scans) |
+| **Public demo site** | React guided tour + playground for non-technical visitors, served at `/` in demo mode, with per-visitor workspaces, rate limits and a daily live-AI budget ([details](#public-guided-demo)) |
 | **Real models** | verified live over 30 documents on AWS Bedrock (Claude Haiku 4.5 + Titan embeddings) and Azure OpenAI (`gpt-4.1-mini`): quality gate passes on both ([results](#real-model-results-azure-openai-and-aws-bedrock)) |
 | **Web console** | built-in operator UI at `/ui`: upload, fields with evidence, cited Q&A, review queue, audit ([screenshots](#web-console)) |
 | **Coverage** | 94% of `app/` |
@@ -45,6 +46,13 @@ make install     # Python 3.12 venv + dependencies (uses uv when available)
 make test        # full suite, offline, about 15 seconds
 make dev         # API + console on http://127.0.0.1:8000 — open /ui (or /docs for the API)
 make demo        # in a second terminal: upload → process → ask → review → audit → evaluate
+```
+
+The guided demo site (Node 22 needed to build it):
+
+```bash
+make web         # npm ci + production build into web/dist
+make demo-site   # demo mode with the offline engine → open http://127.0.0.1:8000/
 ```
 
 Or with Docker only:
@@ -65,9 +73,69 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | AWS Textract OCR, Azure OpenAI embeddings | **Implemented**, tested with stubbed clients; **not yet run against live services** (the test account had no Textract subscription; the failure surfaced as a clean provider error) |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
-| GitHub Actions CI | **Implemented** and passing on GitHub (quality + Docker jobs) |
-| Encryption at rest, TLS, retention, SSO, rate limiting, tracing | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
+| Public guided demo site (`web/`, demo mode) | **Implemented**: tested in CI with the offline engine (Playwright tour, accessibility and mobile checks) and by hand in a browser against the Docker image |
+| Demo-mode protections: visitor workspaces, rate limits, daily live-AI budget, 24-hour retention | **Implemented** and tested; in-memory and single-instance by design ([ADR-011](docs/adr/ADR-011-public-demo.md)) |
+| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Written, not yet deployed**: the template passes `cfn-lint` in CI, but no stack has been created from it yet |
+| GitHub Actions CI | **Implemented** (quality, web, browser e2e, infrastructure lint and Docker jobs) |
+| Encryption at rest, TLS inside the app, SSO, tracing, WAF | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
 | Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
+
+---
+
+## Public guided demo
+
+A website for people who don't read code: recruiters, managers, anyone you want to walk through
+the project. It runs on the same API as everything else, and every result on screen comes from
+the real pipeline.
+
+- **Guided tour** (`/tour`): eight steps, about three minutes. Process a clean invoice and watch
+  each stage finish, open the evidence behind each figure, ask a question and see a refusal, catch
+  a balance sheet whose totals disagree, **act as the reviewer** and correct it, watch hidden
+  instructions in an invoice get flagged instead of followed, then check the tamper-evident audit
+  trail.
+- **Playground** (`/try`): six allow-listed sample documents, or drag in your own PDF; results,
+  questions, review and audit trail for each.
+- **How it works** (`/how-it-works`): the pipeline in plain language, which steps use AI and
+  which don't, a glossary, and what the system doesn't do.
+
+Plain words throughout: confidence shows as "Very sure" or "Not sure", review reasons read
+"The document shows different values for the same figure", and dotted terms explain themselves on
+hover. A badge in the header always says whether **Live AI** (Claude on Bedrock) or the
+**Offline engine** produced what you see.
+
+![The guided tour, step by step](docs/images/site-tour.gif)
+
+| Landing | Evidence behind every value |
+|---|---|
+| ![Landing page](docs/images/site-landing.png) | ![Evidence](docs/images/site-tour-evidence.png) |
+| **You're the reviewer** | **Hidden instructions caught** |
+| ![Review](docs/images/site-tour-review.png) | ![Prompt injection](docs/images/site-tour-injection.png) |
+| **Cited answer and a refusal** | **Tamper-checked audit trail** |
+| ![Ask](docs/images/site-tour-ask.png) | ![Audit](docs/images/site-tour-audit.png) |
+
+Screenshots and the GIF are from the offline engine. To regenerate them, run
+`SCREENSHOTS=1 npx playwright test screenshots --project=desktop` in `web/`, then
+`python scripts/make_tour_gif.py web/test-results/tour-frames docs/images/site-tour.gif`.
+
+**How it stays safe to leave on the internet** (`DOCINTEL_DEMO_MODE=true`):
+
+| Concern | What the demo does |
+|---|---|
+| Visitors seeing each other's files | Each browser gets a signed, HttpOnly, `SameSite=Strict` session cookie bound to a private workspace. Documents, chunks, answers and reviews carry a `workspace_id`; anything outside your workspace returns 404, and retrieval filters by workspace on the server |
+| Admin surfaces | Visitors act as reviewers in their own workspace only. Metrics, drift, evaluations and audit-chain verification still need an API key |
+| Cost | Live model spend is estimated per call and capped per UTC day (default $2). After the cap, a labelled offline engine answers until midnight. AWS Budgets emails at $30/month |
+| Abuse | Per visitor: 6 documents and 25 questions a day. Per IP: 5 new sessions an hour and 120 requests a minute. Uploads are capped at 5 MB and 10 pages. All limits answer `429` with `Retry-After` |
+| Data left behind | Visitor files, chunks and database rows are purged after 24 hours. The audit trail is kept: identifiers, fingerprints, filenames, decisions and short excerpts flagged by safety checks |
+| Hostile documents | Same guardrails as the API, plus a site served with a strict CSP (`script-src 'self'`, no inline script, no third-party resources) that renders all document text as plain text |
+
+These limits are in-memory and assume **one instance**: right for a portfolio demo, not for a
+product. Design notes are in [ADR-011](docs/adr/ADR-011-public-demo.md).
+
+**Deploying it:** [`deploy/aws/`](deploy/aws) has a CloudFormation template (ECR, one ARM64
+Fargate task, ALB reachable only through CloudFront, an IAM task role limited to
+`bedrock:InvokeModel` on one model, logs, a budget alert), `deploy.sh` and a
+[runbook](deploy/aws/RUNBOOK.md) with costs (about $45 a month before Bedrock usage) and
+limitations. The stack hasn't been deployed yet, so there is no public link.
 
 ---
 
@@ -98,7 +166,8 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 23. [Known limitations](#23-known-limitations)
 24. [Production roadmap](#24-production-roadmap)
 
-**Further reading:** [architecture decision records](docs/adr) (ADR-001 to ADR-010) ·
+**Further reading:** [architecture decision records](docs/adr) (ADR-001 to ADR-011) ·
+[public demo deployment runbook](deploy/aws/RUNBOOK.md) ·
 [codebase walkthrough](docs/codebase-walkthrough.md) ·
 [interview guide](docs/interview-guide.md) ·
 [interview question bank](docs/interview-questions.md) (112 questions) ·
@@ -259,6 +328,12 @@ same seam to inject fault-injecting mocks.
 | POST | `/evaluations/run` | admin |
 | GET | `/drift/report` | viewer |
 | GET | `/audit/verify` | admin |
+| POST | `/documents/{id}/process/background` (returns 202; poll `GET /documents/{id}`) | analyst |
+| GET | `/documents/{id}/audit/verify` (fingerprints of one document's events) | viewer |
+| POST | `/demo/session` · GET `/demo/status`, `/demo/samples`, `/demo/samples/{id}/file` · POST `/demo/samples/{id}` | demo mode only; visitors |
+
+In demo mode, a request with no API key uses the visitor's session cookie and is limited to the
+visitor's workspace; with neither, it gets 401.
 
 Errors use one envelope: `{"error": {"type": "…", "message": "…"}, "request_id": "…"}`. Interactive OpenAPI
 documentation is served at `/docs`.
@@ -415,6 +490,7 @@ app/
   audit/          hash-chained audit service
   classification/ document classifier (gateway call + thresholds)
   core/           config, errors, hashing, clock/IDs, registry loader, retry/timeout, text utils
+  demo/           public demo mode: signed sessions, rate limits, daily budget, samples, retention, jobs
   domain/         enums and Pydantic domain models
   drift/          drift snapshot and comparison (PSI, rate deltas, ratios)
   evaluation/     metrics, evaluation runner, quality gate
@@ -429,8 +505,10 @@ app/
   rag/            RAG service, deterministic groundedness
   retrieval/      chunker, indexer, retriever
   services/       dependency container, model gateway
-  web/            static operator console served at /ui (HTML/CSS/JS, no build step)
+  web/            static operator console at /ui (no build step) + serving of the demo site at /
   workflows/      state machine and orchestrator
+web/              public guided demo site: Vite + React + TypeScript, Tailwind, Playwright e2e
+deploy/aws/       CloudFormation template, deploy script and runbook for the public demo
 config/           document_types.yaml (mock keywords + label synonyms), drift.yaml, pricing.yaml
 prompts/          classification/, extraction/, rag/, validation/ — versioned YAML prompts
 evals/            datasets/, thresholds.yaml, baseline.json, drift_baseline.json
@@ -488,6 +566,11 @@ The container runs as a non-root user with a read-only root filesystem, a tmpfs 
 | `make docker` / `make docker-run` | build the image / run with docker compose |
 | `make data` | regenerate the synthetic sample PDFs |
 | `make baseline` | re-baseline evaluation metrics (only after reviewing an intended change) |
+| `make web` / `make web-check` | build the demo site / lint, typecheck, unit-test and build it |
+| `make demo-site` | API in demo mode with the offline engine, serving the built site at `/` |
+| `make web-dev` | Vite dev server on :5173 with hot reload, proxying the API on :8000 |
+| `make web-e2e` | Playwright browser tests against a demo-mode API it starts itself |
+| `make deploy` | build, push and deploy the public demo to AWS ([runbook](deploy/aws/RUNBOOK.md)) |
 
 ### Configuration reference
 
@@ -1099,9 +1182,11 @@ make check           # lint + typecheck + tests + evaluation gate
 
 | Layer | Tests | Covers |
 |---|---|---|
-| Unit | 177 | hashing, text utilities (English and European number formats), config validation, prompt registry and prompt-hash lock, validation rules, value equivalence for conflict detection, cost aliases, guardrails (injection patterns, PII masking including false positives), groundedness, metrics, drift, gateway retries / JSON repair (fences, prose, trailing junk) / timeouts, audit-chain tampering, providers and factory (LangChain adapters with fake chat models; the exact Azure request body for standard and reasoning deployments), PDF inspection |
-| Integration | 112 | every sample PDF through the real workflow with expected routing and fields; masked account numbers recomputed from the printed number; values taken from injected text marked invalid; numeric values missing from their own evidence left unverified; failure modes (malformed JSON, provider outage, timeouts, empty / malformed / encrypted PDFs, OCR unavailable, vector-store failure, illegal transitions); low-confidence escalation at each threshold; retrieval top-k, similarity threshold and document scoping; human review; RAG (citations, refusal, filters, injection); OCR via a stubbed Textract client and via real Tesseract (skipped when absent); evaluation runner (including that unsupported answer sentences are named in the report) |
-| End-to-end | 23 | FastAPI `TestClient` against the real app: every endpoint, error envelope, request IDs, health degradation, API-key auth and role enforcement; the web console (served with CSP, can be disabled, no `innerHTML`, no third-party resources) |
+| Unit | 178 | hashing, text utilities (English and European number formats), config validation, prompt registry and prompt-hash lock, validation rules, value equivalence for conflict detection, cost aliases, guardrails (injection patterns, PII masking including false positives), groundedness, metrics, drift, gateway retries / JSON repair (fences, prose, trailing junk) / timeouts, audit-chain tampering, providers and factory (LangChain adapters with fake chat models; the exact Azure request body for standard and reasoning deployments), PDF inspection |
+| Integration | 121 | demo support (session signing and expiry, limiter, client-IP parsing, daily budget and offline fallback, retention purge, legacy-database migration); every sample PDF through the real workflow with expected routing and fields; masked account numbers recomputed from the printed number; values taken from injected text marked invalid; numeric values missing from their own evidence left unverified; failure modes (malformed JSON, provider outage, timeouts, empty / malformed / encrypted PDFs, OCR unavailable, vector-store failure, illegal transitions); low-confidence escalation at each threshold; retrieval top-k, similarity threshold and document scoping; human review; RAG (citations, refusal, filters, injection); OCR via a stubbed Textract client and via real Tesseract (skipped when absent); evaluation runner (including that unsupported answer sentences are named in the report) |
+| End-to-end | 54 | FastAPI `TestClient` against the real app: every endpoint, error envelope, request IDs, health degradation, API-key auth and role enforcement; the web console (served with CSP, can be disabled, no `innerHTML`, no third-party resources); demo mode (tampered and expired cookies, workspace isolation including retrieval, operator endpoints closed to visitors, allow-listed samples, background progress, limits and upload caps); serving the site (SPA fallback, caching, path traversal, API routes never shadowed) |
+| Web unit (Vitest) | 9 | plain-language mapping: confidence words, pipeline step states, review reasons, value formatting, audit event text |
+| Browser (Playwright) | 10 | the full eight-step tour against the real API, deep links, 404 page, axe accessibility scans (WCAG 2.1 AA, serious and critical) on every page and on processed results, no console or CSP errors, phone-sized layout without sideways scrolling |
 
 **Prompt changes are deliberate.** `tests/fixtures/prompt_hashes.json` pins each prompt
 template's hash, so editing a prompt fails the tests until the hash is updated and the version
@@ -1115,12 +1200,18 @@ bumped.
    `requirements.lock`, `ruff check`, `ruff format --check`, `mypy --strict`, unit, integration
    and end-to-end tests, the evaluation run, and the quality gate (thresholds + regression vs.
    baseline). The evaluation report is uploaded as an artifact.
-2. **docker** job: build the image, start it and poll `/health`.
+2. **web** job (Node 22): `npm ci`, ESLint, TypeScript, Vitest and the production build of the
+   demo site, uploaded as an artifact.
+3. **e2e** job: starts the API in demo mode with the offline engine, serves that build and runs the
+   Playwright suite (tour, accessibility, mobile) in Chromium.
+4. **infra** job: `cfn-lint` on the CloudFormation template and a syntax check of `deploy.sh`.
+5. **docker** job: build the multi-stage image (Node builds the site, Python runs it), start it in
+   demo mode, and check `/health`, the site at `/`, its CSP header and the console at `/ui/`.
 
-Both jobs pass on GitHub; the same commands also run locally through `make check` and
-`make docker`. Deployment (CD) is intentionally not included. A production pipeline would push a
-signed image to a registry and promote it through environments behind a real-provider evaluation
-gate ([Production roadmap](#24-production-roadmap)).
+The same commands also run locally (`make check`, `make web-check`, `make web-e2e`,
+`make docker`). Deployment is a manual `make deploy` ([runbook](deploy/aws/RUNBOOK.md)), not a CI
+step. A production pipeline would push a signed image to a registry and promote it through
+environments behind a real-provider evaluation gate ([Production roadmap](#24-production-roadmap)).
 
 ## 21. Security & privacy
 
@@ -1160,14 +1251,20 @@ gate ([Production roadmap](#24-production-roadmap)).
 - **Container.** Non-root user, read-only root filesystem, `no-new-privileges`, tmpfs `/tmp`.
 - **Web console.** Same-origin only, strict Content-Security-Policy (no inline or third-party
   script), `X-Frame-Options: DENY`, and server data rendered as text, never as HTML.
+- **Public demo mode.** Signed visitor sessions bound to private workspaces, ownership checks
+  that return 404, in-memory per-visitor and per-IP rate limits, a daily cap on live model spend,
+  smaller upload caps and 24-hour purging of visitor data. The demo site has the same CSP and
+  text-only rendering, enforced by ESLint rules (no `dangerouslySetInnerHTML` or `innerHTML`).
+  See [Public guided demo](#public-guided-demo) and [ADR-011](docs/adr/ADR-011-public-demo.md).
 
 **Documented but not implemented** (see [ADR-009](docs/adr/ADR-009-sensitive-data.md)):
 
 - Encryption at rest (use encrypted volumes and KMS-backed S3 / RDS).
 - TLS termination (at a load balancer or ingress; Uvicorn runs with `--proxy-headers`).
-- Document-retention and deletion policies, and data-residency controls (pin Bedrock / Azure
-  regions).
-- Per-tenant isolation, SSO / OIDC, rate limiting, malware scanning of uploads.
+- Document-retention and deletion policies outside demo mode, and data-residency controls (pin
+  Bedrock / Azure regions).
+- Per-tenant isolation for API-key users (all keys share the default workspace), SSO / OIDC,
+  distributed rate limiting or a WAF, malware scanning of uploads.
 
 **Residual risks to be aware of:**
 
@@ -1189,7 +1286,8 @@ gate ([Production roadmap](#24-production-roadmap)).
 |---|---|---|
 | Deterministic state machine instead of an autonomous agent | enumerable, testable, auditable paths | less flexible for open-ended tasks |
 | LangChain only as a provider adapter | breadth of integrations, no framework lock-in | some plumbing we own ourselves |
-| Synchronous processing in the request | simple to test and demo | long documents block a worker; production needs a queue |
+| Synchronous processing in the request (plus an in-process thread pool for the demo's background endpoint) | simple to test and demo | no durable queue: work in flight is lost on restart; production needs one |
+| Demo limits and budget held in memory, one instance | no Redis or extra services to run or pay for | can't scale out; counters reset on restart |
 | SQLite + embedded Chroma | zero setup, single container | single writer, not horizontally scalable |
 | Deterministic groundedness (numbers + token support) | cheap, explainable, no second model | misses paraphrase errors; can over-flag |
 | Hashing embeddings in mock mode | offline and deterministic | lexical only; low precision@k |
@@ -1214,9 +1312,15 @@ More detail in the [architecture decision records](docs/adr).
   check against the mock baseline. Treat single live runs as samples; flagged sentences are now
   named in the report's `failures` so each dip can be inspected.
 - The web console is a single-user operator tool with no saved views, pagination beyond 500
-  documents or keyboard shortcuts. It is not a replacement for a product front end.
-- Processing is synchronous: there is no job queue, worker pool or back-pressure.
-- Single-tenant: no per-tenant data isolation or row-level authorisation.
+  documents or keyboard shortcuts. The demo site is a guided showcase, not a product front end:
+  no accounts, and visitor data is temporary.
+- Processing is synchronous, or runs in a small in-process thread pool for the demo's background
+  endpoint: there is no durable job queue or back-pressure.
+- Workspace isolation exists for demo visitors only; API-key users share one workspace, with no
+  per-tenant row-level authorisation.
+- The public demo is designed for a single instance: rate limits, the daily budget total and
+  background jobs live in memory, and on AWS its data lives on the task's local disk (lost on
+  each deploy). Its daily budget is a soft cap based on the app's own cost estimates.
 - OCR quality depends on Tesseract, and there is no layout or table model, so complex tables in
   scanned documents may extract poorly.
 - Extraction retries happen at the model-call level (timeouts, backoff, one JSON-repair
@@ -1225,7 +1329,8 @@ More detail in the [architecture decision records](docs/adr).
 - The prompt-injection detector is pattern-based and can be bypassed by novel phrasing; it is one
   layer among several.
 - No distributed tracing, exporter configuration, scheduled drift job or alerting.
-- No retention or deletion endpoints (storage and the vector store support deletion internally).
+- No retention or deletion endpoints. Demo mode purges visitor data after 24 hours; otherwise
+  deletion is internal only.
 - Cost estimates use indicative prices from `config/pricing.yaml`.
 
 ## 24. Production roadmap

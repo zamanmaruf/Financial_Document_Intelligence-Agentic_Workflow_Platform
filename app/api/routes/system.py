@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy import text
 
 from app import __version__
-from app.api.deps import Admin, ContainerDep, Viewer
+from app.api.deps import Admin, ContainerDep, Operator
 from app.api.schemas import AuditVerifyResponse, HealthResponse
 from app.drift.monitor import DriftReport
 
@@ -53,7 +53,7 @@ def health(container: ContainerDep, response: Response) -> HealthResponse:
 @router.get("/metrics", response_model=None)
 def metrics(
     container: ContainerDep,
-    _: Viewer,
+    _: Operator,
     format: Annotated[str, Query(pattern="^(json|prometheus)$")] = "json",
 ) -> Response | dict[str, Any]:
     """Operational metrics from the in-process registry (JSON or Prometheus text format)."""
@@ -72,7 +72,7 @@ def metrics(
 
 
 @router.get("/drift/report", response_model=DriftReport)
-def drift_report(container: ContainerDep, _: Viewer) -> DriftReport:
+def drift_report(container: ContainerDep, _: Operator) -> DriftReport:
     """Compare current operational data against the stored drift baseline."""
     return container.drift.report(container.settings.drift_baseline_path)
 

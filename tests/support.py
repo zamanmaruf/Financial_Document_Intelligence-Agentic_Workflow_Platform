@@ -22,6 +22,8 @@ NO_RETRY_DELAY = RetryPolicy(max_retries=2, backoff_s=0.0)
 def make_settings(data_dir: Path, **overrides: Any) -> Settings:
     values: dict[str, Any] = {
         "data_dir": data_dir,
+        # a developer's local web/dist build must not change what tests see at /
+        "site_dir": data_dir / "no-site",
         "llm_provider": LLMProviderName.MOCK,
         "vector_store": VectorStoreName.MEMORY,
         "llm_retry_backoff_s": 0.0,

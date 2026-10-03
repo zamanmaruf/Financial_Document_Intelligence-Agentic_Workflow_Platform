@@ -11,7 +11,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.hashing import sha256_text
 from app.domain.enums import DocumentType
-from app.domain.models import Chunk, ExtractedText
+from app.domain.models import DEFAULT_WORKSPACE, Chunk, ExtractedText
 from app.guardrails.pii import redact_text
 
 
@@ -34,6 +34,7 @@ class Chunker:
         document_id: str,
         text: ExtractedText,
         document_type: DocumentType | None = None,
+        workspace_id: str = DEFAULT_WORKSPACE,
     ) -> list[Chunk]:
         chunks: list[Chunk] = []
         index = 0
@@ -59,6 +60,7 @@ class Chunker:
                         metadata={
                             "document_type": (document_type or DocumentType.UNKNOWN).value,
                             "extraction_method": text.method.value,
+                            "workspace_id": workspace_id,
                         },
                     )
                 )

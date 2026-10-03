@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import Admin, ContainerDep, Viewer
+from app.api.deps import Admin, ContainerDep, Operator
 from app.domain.models import EvaluationResult
 from app.evaluation.runner import EvaluationRunner
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 
 @router.get("", response_model=list[EvaluationResult])
 def list_evaluations(
-    container: ContainerDep, _: Viewer, limit: Annotated[int, Query(ge=1, le=100)] = 20
+    container: ContainerDep, _: Operator, limit: Annotated[int, Query(ge=1, le=100)] = 20
 ) -> list[EvaluationResult]:
     return container.evaluations.recent(limit)
 

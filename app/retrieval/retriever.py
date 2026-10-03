@@ -49,7 +49,9 @@ class Retriever:
         filters: MetadataFilterInput | None = None,
         top_k: int | None = None,
         min_score: float | None = None,
+        workspace_id: str | None = None,
     ) -> RetrievalOutcome:
+        """``workspace_id`` confines the search to one workspace; ``None`` searches all."""
         k = top_k or self.top_k
         if min_score is not None:
             threshold = min_score
@@ -58,6 +60,8 @@ class Retriever:
         where: MetadataFilter = dict(filters or {})
         if document_id:
             where["document_id"] = document_id
+        if workspace_id is not None:
+            where["workspace_id"] = workspace_id
         started = time.perf_counter()
         embedding = self._embedder.embed_query(query)
         hits = self._store.query(embedding, k, where or None)

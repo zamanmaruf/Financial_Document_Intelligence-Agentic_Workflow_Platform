@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import ContainerDep, Principal, Reviewer, Viewer
+from app.api.deps import ContainerDep, Principal, Reviewer, Viewer, owned_review
 from app.api.schemas import (
     ReviewCorrectionRequest,
     ReviewDecisionRequest,
@@ -28,14 +28,18 @@ def _reviewer_id(principal: Principal, body: ReviewDecisionRequest) -> str:
 @router.get("", response_model=ReviewListResponse)
 def list_reviews(
     container: ContainerDep,
-    _: Viewer,
+    principal: Viewer,
     status: ReviewStatus | None = None,
     document_id: str | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ReviewListResponse:
     items = container.reviews.list(
-        status=status, document_id=document_id, limit=limit, offset=offset
+        status=status,
+        document_id=document_id,
+        limit=limit,
+        offset=offset,
+        workspace_id=principal.workspace_id,
     )
     return ReviewListResponse(
         items=[ReviewResponse.from_domain(r) for r in items], count=len(items)
@@ -43,14 +47,15 @@ def list_reviews(
 
 
 @router.get("/{review_id}", response_model=ReviewResponse)
-def get_review(review_id: str, container: ContainerDep, _: Viewer) -> ReviewResponse:
-    return ReviewResponse.from_domain(container.reviews.get(review_id))
+def get_review(review_id: str, container: ContainerDep, principal: Viewer) -> ReviewResponse:
+    return ReviewResponse.from_domain(owned_review(container, principal, review_id))
 
 
 @router.post("/{review_id}/approve", response_model=ReviewResponse)
 def approve_review(
     review_id: str, body: ReviewDecisionRequest, container: ContainerDep, principal: Reviewer
 ) -> ReviewResponse:
+    owned_review(container, principal, review_id)
     case = container.reviews.approve(review_id, _reviewer_id(principal, body), body.comment)
     return ReviewResponse.from_domain(case)
 
@@ -59,6 +64,7 @@ def approve_review(
 def reject_review(
     review_id: str, body: ReviewDecisionRequest, container: ContainerDep, principal: Reviewer
 ) -> ReviewResponse:
+    owned_review(container, principal, review_id)
     case = container.reviews.reject(review_id, _reviewer_id(principal, body), body.comment)
     return ReviewResponse.from_domain(case)
 
@@ -67,6 +73,7 @@ def reject_review(
 def correct_review(
     review_id: str, body: ReviewCorrectionRequest, container: ContainerDep, principal: Reviewer
 ) -> ReviewResponse:
+    owned_review(container, principal, review_id)
     case = container.reviews.correct(
         review_id, _reviewer_id(principal, body), body.corrections, body.comment
     )

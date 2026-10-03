@@ -1,0 +1,73 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+
+/* Design tokens. Components use these names only (bg-surface, text-ink-muted, ...), never raw
+   palette values, so the look can change in one place. Contrast pairs meet WCAG AA. */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f7f8fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f3f8;
+  --color-line: #e3e7ef;
+  --color-line-strong: #c9d0dc;
+
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+  --color-ink-subtle: #586377;
+
+  --color-brand: #3730a3;
+  --color-brand-strong: #312e81;
+  --color-brand-soft: #eef0ff;
+  --color-brand-ink: #ffffff;
+
+  --color-ok: #047857;
+  --color-ok-soft: #e7f7f0;
+  --color-warn: #b45309;
+  --color-warn-soft: #fff5e6;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fdecec;
+  --color-info: #1d4ed8;
+  --color-info-soft: #e8f0ff;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-raised: 0 4px 12px rgb(15 23 42 / 0.08), 0 1px 3px rgb(15 23 42 / 0.06);
+
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+@layer base {
+  html {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  body {
+    @apply min-h-screen;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

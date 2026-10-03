@@ -25,6 +25,7 @@ from app.domain.enums import (
     WorkflowStatus,
 )
 from app.domain.models import (
+    DEFAULT_WORKSPACE,
     ExtractedEntity,
     ExtractionResult,
     FieldValue,
@@ -96,6 +97,7 @@ class HumanReviewService:
         document_id: str | None = None,
         workflow_id: str | None = None,
         details: list[str] | None = None,
+        workspace_id: str = DEFAULT_WORKSPACE,
     ) -> ReviewCase:
         case = ReviewCase(
             review_id=new_id("rev"),
@@ -108,6 +110,7 @@ class HumanReviewService:
             original_output=original_output,
             model_version=model_version,
             prompt_version=prompt_version,
+            workspace_id=workspace_id,
         )
         self._reviews.save(case)
         for reason in case.reasons:
@@ -142,9 +145,14 @@ class HumanReviewService:
         document_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        workspace_id: str | None = None,
     ) -> list[ReviewCase]:
         return self._reviews.search(
-            status=status, document_id=document_id, limit=limit, offset=offset
+            status=status,
+            document_id=document_id,
+            limit=limit,
+            offset=offset,
+            workspace_id=workspace_id,
         )
 
     def get(self, review_id: str) -> ReviewCase:

@@ -1,6 +1,16 @@
 # syntax=docker/dockerfile:1
-# Runtime image for the Financial Document Intelligence API.
+# Runtime image for the Financial Document Intelligence API and the public demo site.
 # Defaults to local/mock mode; point DOCINTEL_* env vars at Bedrock / Azure OpenAI for real providers.
+
+# --- Stage 1: build the demo site (web/) into static files -------------------------------------
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+# --- Stage 2: Python runtime -------------------------------------------------------------------
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -29,6 +39,8 @@ COPY config ./config
 COPY evals ./evals
 COPY sample_data ./sample_data
 COPY scripts ./scripts
+# Served at / by app.web.mount_root (settings.site_dir defaults to /app/web/dist).
+COPY --from=web /web/dist ./web/dist
 
 RUN useradd --create-home --uid 10001 docintel \
     && mkdir -p /data \

@@ -7,7 +7,7 @@ runs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import Engine
 
@@ -16,6 +16,9 @@ from app.classification.service import DocumentClassifier
 from app.core.config import Settings
 from app.core.registry import DocumentTypeRegistry
 from app.core.resilience import RetryPolicy
+from app.demo.budget import BudgetedLLMProvider, DailyBudget
+from app.demo.jobs import BackgroundJobs
+from app.demo.limits import RateLimiter
 from app.drift.monitor import DriftMonitor, DriftThresholds
 from app.extraction.service import EntityExtractor
 from app.human_review.service import HumanReviewService
@@ -32,6 +35,7 @@ from app.persistence.repositories import (
     EvaluationRepository,
     ExtractionRepository,
     InvocationRepository,
+    RetentionRepository,
     ReviewRepository,
     WorkflowRepository,
 )
@@ -45,7 +49,9 @@ from app.providers.factory import (
     build_vector_store,
 )
 from app.providers.llm.base import LLMProvider
-from app.providers.storage.local import LocalDocumentStore
+from app.providers.llm.mock import MockLLMProvider
+from app.providers.llm.mock_handlers import default_handlers
+from app.providers.storage.local import DocumentStore, LocalDocumentStore
 from app.providers.vectorstore.base import VectorStore
 from app.rag.service import RAGService, RAGSettings
 from app.retrieval.chunking import Chunker
@@ -88,8 +94,14 @@ class Container:
     workflow: DocumentWorkflow
     rag: RAGService
     drift: DriftMonitor
+    store: DocumentStore
+    retention: RetentionRepository
+    budget: DailyBudget | None = None
+    limiter: RateLimiter = field(default_factory=RateLimiter)
+    jobs: BackgroundJobs = field(default_factory=BackgroundJobs)
 
     def close(self) -> None:
+        self.jobs.shutdown()
         self.engine.dispose()
 
 
@@ -125,6 +137,11 @@ def build_container(
     evaluations = EvaluationRepository(sf)
     audit = AuditService(AuditRepository(sf))
 
+    budget: DailyBudget | None = None
+    if settings.demo_mode and not llm.is_mock:
+        budget = DailyBudget(invocations, settings.demo_daily_budget_usd)
+        llm = BudgetedLLMProvider(llm, MockLLMProvider(default_handlers(registry)), budget)
+
     gateway = ModelGateway(
         provider=llm,
         prompts=prompts,
@@ -142,7 +159,7 @@ def build_container(
     )
     store = LocalDocumentStore(settings.data_dir / "documents")
     ingestion = IngestionService(
-        documents, store, audit, metrics, settings.max_upload_bytes, settings.max_pages
+        documents, store, audit, metrics, settings.max_upload_bytes, settings.effective_max_pages
     )
     text_extraction = TextExtractionService(
         ocr=ocr_engine, min_chars_per_page=settings.ocr_min_chars_per_page
@@ -246,4 +263,7 @@ def build_container(
             evaluations,
             DriftThresholds.load(settings.config_dir),
         ),
+        store=store,
+        retention=RetentionRepository(sf),
+        budget=budget,
     )
