@@ -2,11 +2,14 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const PAGES = [
-  { path: "/", ready: "Turn financial PDFs" },
+  { path: "/", ready: "financial PDFs" },
   { path: "/tour", ready: "Process a clean invoice" },
   { path: "/try", ready: "Try it yourself" },
   { path: "/how-it-works", ready: "How it works" },
 ];
+
+// Entrance animations start from transparent; scan the settled page, as a reader sees it.
+test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 async function seriousViolations(page: Page): Promise<string[]> {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
@@ -30,6 +33,22 @@ test("processed results have no serious accessibility violations", async ({ page
   expect(await seriousViolations(page)).toEqual([]);
   await page.getByRole("tab", { name: /Review/ }).click();
   await expect(page.getByText("Why a person is needed")).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+test("the tour stage with the document viewer has no serious accessibility violations", async ({ page }) => {
+  await page.goto("/tour");
+  await page.getByRole("button", { name: "Process the invoice" }).click();
+  await expect(page.getByText("Ready: all checks passed")).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: /Amount due 5,238/ }).click();
+  await expect(page.getByTestId("document-viewer").getByRole("img")).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+test("the not-found page has no serious accessibility violations", async ({ page }) => {
+  await page.goto("/no-such-page");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

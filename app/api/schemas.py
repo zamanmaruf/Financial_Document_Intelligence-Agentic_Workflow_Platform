@@ -146,6 +146,49 @@ class AskRequest(BaseModel):
         return v
 
 
+class LocateQueryBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=500)
+    page: int | None = Field(
+        default=None, ge=1, description="1-based page to search; omit to search every page"
+    )
+
+
+class LocateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    queries: list[LocateQueryBody] = Field(min_length=1, max_length=50)
+
+
+class HighlightRect(BaseModel):
+    """Page-relative box: (0, 0) is the top-left corner and 1 spans the full page edge."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class LocateMatch(BaseModel):
+    page_number: int
+    rects: list[HighlightRect]
+
+
+class LocateResult(BaseModel):
+    text: str
+    page: int | None
+    matches: list[LocateMatch]
+
+
+class LocateResponse(BaseModel):
+    document_id: str
+    has_text_layer: bool = Field(
+        description="False for scanned documents, which have no text positions to highlight"
+    )
+    results: list[LocateResult]
+
+
 class AskResponse(BaseModel):
     answer_id: str
     document_id: str | None

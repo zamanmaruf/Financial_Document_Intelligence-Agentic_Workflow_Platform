@@ -31,6 +31,7 @@ def purge_expired(container: Container, now: datetime | None = None) -> dict[str
     for doc_id in ids:
         container.vector_store.delete_document(doc_id)
         container.store.delete(doc_id)
+        container.pages.forget(doc_id)
     counts = container.retention.purge(ids, cutoff)
     if any(counts.values()):
         container.audit.record(

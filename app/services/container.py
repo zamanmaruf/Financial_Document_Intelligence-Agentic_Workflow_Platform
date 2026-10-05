@@ -19,6 +19,7 @@ from app.core.resilience import RetryPolicy
 from app.demo.budget import BudgetedLLMProvider, DailyBudget
 from app.demo.jobs import BackgroundJobs
 from app.demo.limits import RateLimiter
+from app.documents.pages import PageService
 from app.drift.monitor import DriftMonitor, DriftThresholds
 from app.extraction.service import EntityExtractor
 from app.human_review.service import HumanReviewService
@@ -96,6 +97,7 @@ class Container:
     drift: DriftMonitor
     store: DocumentStore
     retention: RetentionRepository
+    pages: PageService
     budget: DailyBudget | None = None
     limiter: RateLimiter = field(default_factory=RateLimiter)
     jobs: BackgroundJobs = field(default_factory=BackgroundJobs)
@@ -265,5 +267,6 @@ def build_container(
         ),
         store=store,
         retention=RetentionRepository(sf),
+        pages=PageService(store),
         budget=budget,
     )

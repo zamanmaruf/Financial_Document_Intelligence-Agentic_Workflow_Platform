@@ -1,5 +1,5 @@
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
@@ -19,13 +19,15 @@ export function AccordionTrigger({
     <AccordionPrimitive.Header className="flex">
       <AccordionPrimitive.Trigger
         className={cn(
-          "flex flex-1 items-center justify-between py-4 text-left text-sm font-medium text-ink hover:text-brand [&[data-state=open]>svg]:rotate-180",
+          "group flex flex-1 items-center justify-between gap-4 py-5 text-left text-[15px] font-medium text-ink transition-colors hover:text-white",
           className,
         )}
         {...props}
       >
         {children}
-        <ChevronDown className="size-4 shrink-0 text-ink-subtle transition-transform" aria-hidden />
+        <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line-strong text-ink-muted transition-[transform,color,border-color] duration-200 group-hover:border-line-bright group-hover:text-ink group-data-[state=open]:rotate-45">
+          <Plus className="size-3.5" aria-hidden />
+        </span>
       </AccordionPrimitive.Trigger>
     </AccordionPrimitive.Header>
   );
@@ -38,7 +40,7 @@ export function AccordionContent({
 }: ComponentProps<typeof AccordionPrimitive.Content>) {
   return (
     <AccordionPrimitive.Content className="overflow-hidden text-sm text-ink-muted" {...props}>
-      <div className={cn("pb-4 leading-relaxed", className)}>{children}</div>
+      <div className={cn("pb-5 pr-10 leading-relaxed", className)}>{children}</div>
     </AccordionPrimitive.Content>
   );
 }

@@ -11,6 +11,7 @@ import {
   formatValue,
   reasonText,
   stepState,
+  stepTimings,
   sureness,
 } from "./plain";
 
@@ -102,5 +103,29 @@ describe("error wording", () => {
     expect(friendlyError(new TypeError("fetch failed"))).toMatch(/connection/);
     expect(humanWait(30)).toBe("30 seconds");
     expect(humanWait(600)).toBe("10 minutes");
+  });
+});
+
+describe("step timings", () => {
+  const at = (type: string, seconds: number, details: Record<string, unknown> = {}): AuditEvent => ({
+    ...event(type, details),
+    timestamp: new Date(Date.UTC(2026, 0, 1, 0, 0, seconds)).toISOString(),
+  });
+
+  it("measures each step from the latest run's audit records", () => {
+    const events = [
+      at("workflow.started", 0),
+      at("workflow.transition", 9, { to: "TEXT_EXTRACTED" }),
+      // a re-run: only the latest workflow.started counts
+      at("workflow.started", 10),
+      at("workflow.transition", 11, { to: "TEXT_EXTRACTED" }),
+      at("workflow.transition", 14, { to: "CLASSIFIED" }),
+      at("review.created", 15),
+    ];
+    expect(stepTimings([...events].reverse())).toEqual({ TEXT_EXTRACTED: 1000, CLASSIFIED: 3000 });
+  });
+
+  it("returns nothing when no run has started", () => {
+    expect(stepTimings([at("document.uploaded", 0)])).toEqual({});
   });
 });

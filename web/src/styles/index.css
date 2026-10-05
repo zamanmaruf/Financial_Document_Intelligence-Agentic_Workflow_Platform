@@ -1,44 +1,78 @@
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
 
 /* Design tokens. Components use these names only (bg-surface, text-ink-muted, ...), never raw
-   palette values, so the look can change in one place. Contrast pairs meet WCAG AA. */
+   palette values, so the look can change in one place. Every text colour below is at least
+   5:1 against every surface (WCAG AA needs 4.5:1); the accent is never used for button text. */
 @theme {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --color-canvas: #f7f8fb;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f1f3f8;
-  --color-line: #e3e7ef;
-  --color-line-strong: #c9d0dc;
+  --color-canvas: #08090b;
+  --color-surface: #0e1014;
+  --color-surface-raised: #14171c;
+  --color-surface-overlay: #1a1e25;
+  --color-surface-muted: #14171c;
+  --color-line: rgb(255 255 255 / 0.07);
+  --color-line-strong: rgb(255 255 255 / 0.13);
+  --color-line-bright: rgb(255 255 255 / 0.22);
 
-  --color-ink: #0f172a;
-  --color-ink-muted: #475569;
-  --color-ink-subtle: #586377;
+  --color-ink: #edeef0;
+  --color-ink-muted: #a3a9b5;
+  --color-ink-subtle: #868d9c;
 
-  --color-brand: #3730a3;
-  --color-brand-strong: #312e81;
-  --color-brand-soft: #eef0ff;
-  --color-brand-ink: #ffffff;
+  /* Primary actions are light pills with dark text; the gradient is for light, not for text. */
+  --color-primary: #edeef0;
+  --color-primary-hover: #ffffff;
+  --color-primary-ink: #08090b;
 
-  --color-ok: #047857;
-  --color-ok-soft: #e7f7f0;
-  --color-warn: #b45309;
-  --color-warn-soft: #fff5e6;
-  --color-danger: #b91c1c;
-  --color-danger-soft: #fdecec;
-  --color-info: #1d4ed8;
-  --color-info-soft: #e8f0ff;
+  --color-brand: #a194ff;
+  --color-brand-2: #38d5f2;
+  --color-brand-soft: color-mix(in oklab, #8b7bff 14%, transparent);
+  --color-brand-line: color-mix(in oklab, #8b7bff 38%, transparent);
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
+  --color-ok: #3ddc97;
+  --color-ok-soft: color-mix(in oklab, #3ddc97 13%, transparent);
+  --color-ok-line: color-mix(in oklab, #3ddc97 32%, transparent);
+  --color-warn: #f5b94a;
+  --color-warn-soft: color-mix(in oklab, #f5b94a 13%, transparent);
+  --color-warn-line: color-mix(in oklab, #f5b94a 32%, transparent);
+  --color-danger: #ff7a7a;
+  --color-danger-soft: color-mix(in oklab, #ff6b6b 14%, transparent);
+  --color-danger-line: color-mix(in oklab, #ff6b6b 36%, transparent);
+  --color-info: #7cb4ff;
+  --color-info-soft: color-mix(in oklab, #6aa8ff 13%, transparent);
+  --color-info-line: color-mix(in oklab, #6aa8ff 32%, transparent);
 
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
-  --shadow-raised: 0 4px 12px rgb(15 23 42 / 0.08), 0 1px 3px rgb(15 23 42 / 0.06);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-raised:
+    inset 0 1px 0 rgb(255 255 255 / 0.05), 0 8px 24px -6px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.35);
+  --shadow-float:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 64px -12px rgb(0 0 0 / 0.7), 0 4px 14px rgb(0 0 0 / 0.4);
+  --shadow-glow: 0 0 0 1px rgb(139 123 255 / 0.35), 0 8px 32px -6px rgb(139 123 255 / 0.45);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
 
   --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+  --animate-fade-up: fade-up 420ms var(--ease-out) both;
+  --animate-fade-in: fade-in 260ms var(--ease-out) both;
+  --animate-draw: draw 520ms var(--ease-out) both;
+  --animate-shimmer: shimmer 1.8s linear infinite;
+  --animate-beacon: beacon 2.4s var(--ease-out) infinite;
+  --animate-nudge: nudge 2.2s ease-in-out infinite;
+  --animate-route: route 1.2s var(--ease-out) infinite;
 
   @keyframes pulse-soft {
     0%,
@@ -46,7 +80,69 @@
       opacity: 1;
     }
     50% {
-      opacity: 0.55;
+      opacity: 0.5;
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes draw {
+    from {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes beacon {
+    0% {
+      box-shadow: 0 0 0 0 currentColor;
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 6px transparent;
+    }
+  }
+  @keyframes route {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(250%);
+    }
+  }
+  @keyframes nudge {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgb(161 148 255 / 0);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgb(161 148 255 / 0.28);
     }
   }
 }
@@ -54,20 +150,112 @@
 @layer base {
   html {
     @apply bg-canvas text-ink antialiased;
-    font-feature-settings: "cv11", "ss01";
+    color-scheme: dark;
+    font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply min-h-screen;
   }
+  ::selection {
+    background: rgb(139 123 255 / 0.4);
+    color: #fff;
+  }
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-brand;
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+  p {
+    text-wrap: pretty;
   }
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer components {
+  /* Tabular figures wherever numbers are compared. */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text-gradient {
+    background: linear-gradient(100deg, #c4b8ff 0%, #a194ff 35%, #38d5f2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Faint engineering grid, fading out from the centre. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+  }
+
+  .glow-hero {
+    background:
+      radial-gradient(40rem 22rem at 70% 10%, rgb(139 123 255 / 0.22), transparent 70%),
+      radial-gradient(30rem 18rem at 20% 0%, rgb(56 213 242 / 0.1), transparent 70%);
+  }
+
+  /* 1-px gradient border for featured surfaces. */
+  .ring-gradient {
+    position: relative;
+    isolation: isolate;
+  }
+  .ring-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(140deg, rgb(161 148 255 / 0.65), rgb(56 213 242 / 0.25) 45%, rgb(255 255 255 / 0.06));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(255 255 255 / 0.035) 25%,
+      rgb(255 255 255 / 0.08) 50%,
+      rgb(255 255 255 / 0.035) 75%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+/* The tour's step controls are pinned to the bottom on small screens; keep the footer clear. */
+@media (max-width: 1023px) {
+  body:has([data-tour-bar]) footer {
+    padding-bottom: 5rem;
   }
 }

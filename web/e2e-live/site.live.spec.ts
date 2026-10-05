@@ -4,7 +4,7 @@ import { devices, expect, test, type Page } from "@playwright/test";
 import { VISITOR_STATE } from "../playwright.live.config";
 
 const PAGES = [
-  { path: "/", ready: "Turn financial PDFs" },
+  { path: "/", ready: "financial PDFs" },
   { path: "/tour", ready: "Process a clean invoice" },
   { path: "/try", ready: "Try it yourself" },
   { path: "/how-it-works", ready: "How it works" },
@@ -21,6 +21,10 @@ test("every page and the engineer console load; unknown paths get proper 404s", 
   for (const path of [...PAGES.map((p) => p.path), "/ui/"]) {
     expect((await request.get(path)).status(), path).toBe(200);
   }
+  const og = await request.get("/og.png");
+  expect(og.status()).toBe(200);
+  expect(og.headers()["content-type"]).toContain("image/png");
+
   const page404 = await request.get("/no-such-page");
   expect(page404.status()).toBe(404);
   expect(page404.headers()["content-type"]).toContain("text/html");

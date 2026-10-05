@@ -1,5 +1,3 @@
-import { Cpu, Sparkles } from "lucide-react";
-
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDemoStatus } from "@/hooks/useDemoStatus";
 import { cn } from "@/lib/utils";
@@ -10,13 +8,19 @@ export function AiBadge({ className }: { className?: string }) {
 
   if (unavailable) {
     return (
-      <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-danger-soft px-3 py-1 text-xs font-medium text-danger", className)}>
+      <span
+        className={cn(
+          "inline-flex h-7 items-center gap-2 rounded-full border border-danger-line bg-danger-soft px-3 text-xs font-medium text-danger",
+          className,
+        )}
+      >
+        <span aria-hidden className="size-1.5 rounded-full bg-danger" />
         Service unreachable
       </span>
     );
   }
   if (!status) {
-    return <span className={cn("inline-block h-6 w-28 animate-pulse-soft rounded-full bg-surface-muted", className)} aria-hidden />;
+    return <span className={cn("skeleton inline-block h-7 w-24 rounded-full", className)} aria-hidden />;
   }
 
   const live = status.ai_mode === "live";
@@ -33,15 +37,20 @@ export function AiBadge({ className }: { className?: string }) {
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
-            live ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn",
+            "inline-flex h-7 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors",
+            live
+              ? "border-ok-line bg-ok-soft text-ok hover:border-ok"
+              : "border-warn-line bg-warn-soft text-warn hover:border-warn",
             className,
           )}
         >
-          {live ? <Sparkles className="size-3.5" aria-hidden /> : <Cpu className="size-3.5" aria-hidden />}
+          <span aria-hidden className="relative flex size-1.5">
+            {live && <span className="absolute inset-0 animate-beacon rounded-full text-ok" />}
+            <span className="relative size-1.5 rounded-full bg-current" />
+          </span>
           {label}
           {!live && status.offline_reason === "budget_reached" && (
-            <span className="font-normal">· daily budget used</span>
+            <span className="font-normal opacity-80">· daily budget used</span>
           )}
         </button>
       </TooltipTrigger>

@@ -13,6 +13,9 @@ export type AuditEvent = components["schemas"]["AuditEvent"];
 export type Sample = components["schemas"]["DemoSampleResponse"];
 export type DemoStatus = components["schemas"]["DemoStatusResponse"];
 export type WorkflowStatus = Document["status"];
+export type LocateQuery = components["schemas"]["LocateQueryBody"];
+export type LocateResponse = components["schemas"]["LocateResponse"];
+export type HighlightRect = components["schemas"]["HighlightRect"];
 
 // Same origin as the site: the API and the static build are served by one FastAPI app.
 const client = createClient<paths>({ baseUrl: "", credentials: "same-origin" });
@@ -122,6 +125,16 @@ export const api = {
     call(() =>
       client.GET("/documents/{document_id}/audit/verify", {
         params: { path: { document_id: id } },
+      }),
+    ),
+  /** Same-origin URL of a rendered page; the browser sends the session cookie with it. */
+  pageImageUrl: (id: string, page: number): string =>
+    `/documents/${encodeURIComponent(id)}/pages/${page}/image`,
+  locate: (id: string, queries: LocateQuery[]) =>
+    call(() =>
+      client.POST("/documents/{document_id}/locate", {
+        params: { path: { document_id: id } },
+        body: { queries },
       }),
     ),
   ask: (id: string, question: string) =>

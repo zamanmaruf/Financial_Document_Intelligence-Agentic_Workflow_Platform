@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("navigation works on a phone-sized screen without horizontal scrolling", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /menu/i }).click();
-  await page.getByRole("link", { name: "Try it yourself" }).last().click();
+  await page.locator("#mobile-menu").getByRole("link", { name: "Try it yourself" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Try it yourself");
 
   for (const path of ["/", "/tour", "/try", "/how-it-works"]) {

@@ -12,21 +12,34 @@ const OUT = resolve(import.meta.dirname, "..", "..", "docs", "images");
 const FRAMES = resolve(import.meta.dirname, "..", "test-results", "tour-frames");
 let frameNo = 0;
 
+/** Wait until every rendered page image has loaded and box animations have finished. */
+async function settle(page: Page) {
+  await page.waitForFunction(() =>
+    Array.from(document.querySelectorAll<HTMLImageElement>("[data-testid=document-viewer] img")).every(
+      (img) => img.complete && img.naturalWidth > 0,
+    ),
+  );
+  await page.waitForTimeout(400);
+}
+
 async function shot(page: Page, name: string) {
+  await settle(page);
   await page.screenshot({ path: resolve(OUT, `site-${name}.png`) });
 }
 
 async function frame(page: Page) {
+  await settle(page);
   frameNo += 1;
   await page.screenshot({ path: resolve(FRAMES, `${String(frameNo).padStart(2, "0")}.png`) });
 }
 
-test.use({ viewport: { width: 1280, height: 860 } });
+// Reduced motion so entrance animations are finished when each picture is taken.
+test.use({ viewport: { width: 1280, height: 860 }, contextOptions: { reducedMotion: "reduce" } });
 
 test("capture README screenshots", async ({ page }) => {
   rmSync(FRAMES, { recursive: true, force: true });
   mkdirSync(FRAMES, { recursive: true });
-  const next = () => page.getByRole("button", { name: "Next" }).click();
+  const next = () => page.getByRole("button", { name: "Continue" }).click();
 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

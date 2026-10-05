@@ -268,6 +268,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents/{document_id}/locate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Locate Text
+         * @description Find where snippets appear on the page, as boxes for highlighting.
+         *
+         *     Exact matches are tried first, then a case- and whitespace-insensitive search. Scanned
+         *     pages have no text layer, so they return no boxes.
+         */
+        post: operations["locate_text_documents__document_id__locate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{document_id}/pages/{page_number}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Page Image
+         * @description Render one page as a PNG for the document viewer (cached in memory, never on disk).
+         */
+        get: operations["get_page_image_documents__document_id__pages__page_number__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{document_id}/process": {
         parameters: {
             query?: never;
@@ -966,6 +1009,63 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * HighlightRect
+         * @description Page-relative box: (0, 0) is the top-left corner and 1 spans the full page edge.
+         */
+        HighlightRect: {
+            /** Height */
+            height: number;
+            /** Width */
+            width: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** LocateMatch */
+        LocateMatch: {
+            /** Page Number */
+            page_number: number;
+            /** Rects */
+            rects: components["schemas"]["HighlightRect"][];
+        };
+        /** LocateQueryBody */
+        LocateQueryBody: {
+            /**
+             * Page
+             * @description 1-based page to search; omit to search every page
+             */
+            page?: number | null;
+            /** Text */
+            text: string;
+        };
+        /** LocateRequest */
+        LocateRequest: {
+            /** Queries */
+            queries: components["schemas"]["LocateQueryBody"][];
+        };
+        /** LocateResponse */
+        LocateResponse: {
+            /** Document Id */
+            document_id: string;
+            /**
+             * Has Text Layer
+             * @description False for scanned documents, which have no text positions to highlight
+             */
+            has_text_layer: boolean;
+            /** Results */
+            results: components["schemas"]["LocateResult"][];
+        };
+        /** LocateResult */
+        LocateResult: {
+            /** Matches */
+            matches: components["schemas"]["LocateMatch"][];
+            /** Page */
+            page: number | null;
+            /** Text */
+            text: string;
+        };
         /** ProcessResponse */
         ProcessResponse: {
             document: components["schemas"]["DocumentResponse"];
@@ -1597,6 +1697,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtractionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    locate_text_documents__document_id__locate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                docintel_demo?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_page_image_documents__document_id__pages__page_number__image_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-none-match"?: string | null;
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                document_id: string;
+                page_number: number;
+            };
+            cookie?: {
+                docintel_demo?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page as a PNG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
                 };
             };
             /** @description Validation Error */

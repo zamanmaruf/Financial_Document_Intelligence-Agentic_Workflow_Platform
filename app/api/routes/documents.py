@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Query, UploadFile, status
+from fastapi import APIRouter, File, Header, Path, Query, Response, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import (
@@ -24,16 +24,24 @@ from app.api.schemas import (
     DocumentAuditVerifyResponse,
     DocumentResponse,
     ExtractionsResponse,
+    HighlightRect,
+    LocateMatch,
+    LocateRequest,
+    LocateResponse,
+    LocateResult,
     ProcessResponse,
     UploadResponse,
 )
-from app.core.errors import InvalidDocumentError, InvalidStateError
+from app.core.errors import DocumentNotFoundError, InvalidDocumentError, InvalidStateError
 from app.core.hashing import sha256_bytes
+from app.documents.pages import LocateQuery, PageService
 from app.ingestion.service import UploadOutcome
 from app.services.container import Container
 from app.workflows.state_machine import IN_PROGRESS
 
 router = APIRouter(tags=["documents"])
+
+PAGE_CACHE_CONTROL = "private, max-age=3600"
 
 
 async def ingest_for(
@@ -175,6 +183,65 @@ def ask_corpus(body: AskRequest, container: ContainerDep, principal: Viewer) -> 
         workspace_id=principal.workspace_id,
     )
     return AskResponse.from_domain(answer)
+
+
+@router.get(
+    "/documents/{document_id}/pages/{page_number}/image",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "The page as a PNG"}},
+)
+def get_page_image(
+    document_id: str,
+    page_number: Annotated[int, Path(ge=1, le=10_000)],
+    container: ContainerDep,
+    principal: Viewer,
+    if_none_match: Annotated[str | None, Header()] = None,
+) -> Response:
+    """Render one page as a PNG for the document viewer (cached in memory, never on disk)."""
+    doc = owned_document(container, principal, document_id)
+    if page_number > doc.metadata.page_count:
+        raise DocumentNotFoundError(f"page {page_number} not found")
+    etag = PageService.etag(doc.metadata.sha256, page_number)
+    headers = {"ETag": etag, "Cache-Control": PAGE_CACHE_CONTROL}
+    if if_none_match and etag in {t.strip() for t in if_none_match.split(",")}:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    page = container.pages.render(document_id, page_number)
+    return Response(content=page.png, media_type="image/png", headers=headers)
+
+
+@router.post("/documents/{document_id}/locate", response_model=LocateResponse)
+def locate_text(
+    document_id: str, body: LocateRequest, container: ContainerDep, principal: Viewer
+) -> LocateResponse:
+    """Find where snippets appear on the page, as boxes for highlighting.
+
+    Exact matches are tried first, then a case- and whitespace-insensitive search. Scanned
+    pages have no text layer, so they return no boxes.
+    """
+    doc = owned_document(container, principal, document_id)
+    queries = [LocateQuery(text=q.text, page=q.page) for q in body.queries]
+    outcomes = container.pages.locate(document_id, queries)
+    return LocateResponse(
+        document_id=document_id,
+        has_text_layer=doc.metadata.has_text_layer,
+        results=[
+            LocateResult(
+                text=o.query.text,
+                page=o.query.page,
+                matches=[
+                    LocateMatch(
+                        page_number=m.page_number,
+                        rects=[
+                            HighlightRect(x=r.x, y=r.y, width=r.width, height=r.height)
+                            for r in m.rects
+                        ],
+                    )
+                    for m in o.matches
+                ],
+            )
+            for o in outcomes
+        ],
+    )
 
 
 @router.get("/documents/{document_id}/audit", response_model=AuditResponse)

@@ -1288,6 +1288,164 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HighlightRect": {
+        "description": "Page-relative box: (0, 0) is the top-left corner and 1 spans the full page edge.",
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "number"
+          },
+          "width": {
+            "title": "Width",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "title": "HighlightRect",
+        "type": "object"
+      },
+      "LocateMatch": {
+        "properties": {
+          "page_number": {
+            "title": "Page Number",
+            "type": "integer"
+          },
+          "rects": {
+            "items": {
+              "$ref": "#/components/schemas/HighlightRect"
+            },
+            "title": "Rects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "page_number",
+          "rects"
+        ],
+        "title": "LocateMatch",
+        "type": "object"
+      },
+      "LocateQueryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1-based page to search; omit to search every page",
+            "title": "Page"
+          },
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "LocateQueryBody",
+        "type": "object"
+      },
+      "LocateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "queries": {
+            "items": {
+              "$ref": "#/components/schemas/LocateQueryBody"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Queries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "queries"
+        ],
+        "title": "LocateRequest",
+        "type": "object"
+      },
+      "LocateResponse": {
+        "properties": {
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "has_text_layer": {
+            "description": "False for scanned documents, which have no text positions to highlight",
+            "title": "Has Text Layer",
+            "type": "boolean"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/LocateResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document_id",
+          "has_text_layer",
+          "results"
+        ],
+        "title": "LocateResponse",
+        "type": "object"
+      },
+      "LocateResult": {
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/LocateMatch"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "page",
+          "matches"
+        ],
+        "title": "LocateResult",
+        "type": "object"
+      },
       "ProcessResponse": {
         "properties": {
           "document": {
@@ -2730,6 +2888,189 @@
           }
         },
         "summary": "Get Extractions",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/documents/{document_id}/locate": {
+      "post": {
+        "description": "Find where snippets appear on the page, as boxes for highlighting.\n\nExact matches are tried first, then a case- and whitespace-insensitive search. Scanned\npages have no text layer, so they return no boxes.",
+        "operationId": "locate_text_documents__document_id__locate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "docintel_demo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Docintel Demo"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Locate Text",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/documents/{document_id}/pages/{page_number}/image": {
+      "get": {
+        "description": "Render one page as a PNG for the document viewer (cached in memory, never on disk).",
+        "operationId": "get_page_image_documents__document_id__pages__page_number__image_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_number",
+            "required": true,
+            "schema": {
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Page Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-none-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "docintel_demo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Docintel Demo"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "The page as a PNG"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Page Image",
         "tags": [
           "documents"
         ]

@@ -11,7 +11,7 @@ export function Term({ k, children }: { k: GlossaryKey; children?: ReactNode }) 
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="cursor-help rounded-sm border-b border-dotted border-ink-subtle font-[inherit] text-inherit"
+          className="cursor-help rounded-sm border-b border-dotted border-ink-subtle font-[inherit] text-inherit transition-colors hover:border-brand hover:text-ink"
         >
           {children ?? entry.term.toLowerCase()}
         </button>

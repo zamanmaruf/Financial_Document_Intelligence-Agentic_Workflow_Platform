@@ -4,23 +4,23 @@ import { expect, test, type Page } from "@playwright/test";
 // Model output varies, so this asserts on statuses and structure rather than exact wording.
 
 async function next(page: Page) {
-  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 }
 
 test("the guided tour runs end to end on live AI", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Live AI" }), "badge should read Live AI").toBeVisible();
-  await page.getByRole("link", { name: /Start the 3-minute tour/ }).click();
+  await page.getByRole("link", { name: /Take the 3-minute tour/ }).first().click();
 
   // 1. Clean invoice.
-  await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
   await page.getByRole("button", { name: "Process the invoice" }).click();
   await expect(page.getByText("Ready: all checks passed")).toBeVisible();
   await next(page);
 
   // 2. Fields with evidence.
   await expect(page).toHaveURL(/step=2/);
-  const amount = page.getByRole("button", { name: /Amount due/ });
+  const amount = page.getByRole("button", { name: /Amount due \d/ });
   await expect(amount).toBeVisible();
   await amount.click();
   await expect(page.getByText(/Amount Due:/).first()).toBeVisible();

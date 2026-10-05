@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { api, friendlyError, type Document, type WorkflowStatus } from "@/api/client";
+import { api, ApiError, friendlyError, type Document, type WorkflowStatus } from "@/api/client";
 import { useDemoStatus } from "@/hooks/useDemoStatus";
 import { FINAL_STATUSES } from "@/lib/plain";
 
 export type RunPhase = "idle" | "uploading" | "processing" | "done" | "error";
+
+export interface RunFailure {
+  message: string;
+  /** The demo allowance (or a rate limit) was reached. */
+  limited: boolean;
+}
 
 export interface DocumentRun {
   phase: RunPhase;
@@ -14,12 +20,13 @@ export interface DocumentRun {
   error: string | null;
   /**
    * ``reprocessIf`` re-runs processing for a document that was already processed earlier in
-   * this session (loading the same sample twice returns the existing copy).
+   * this session (loading the same sample twice returns the existing copy). Resolves with the
+   * error shown to the visitor, or null.
    */
   start: (
     load: () => Promise<{ document: Document }>,
     reprocessIf?: (doc: Document) => boolean,
-  ) => Promise<void>;
+  ) => Promise<RunFailure | null>;
   /** Re-read the document (after a review decision, for example). */
   reload: () => Promise<void>;
   reset: () => void;
@@ -48,7 +55,7 @@ export function useDocumentRun(): DocumentRun {
     async (
       load: () => Promise<{ document: Document }>,
       reprocessIf?: (doc: Document) => boolean,
-    ) => {
+    ): Promise<RunFailure | null> => {
       const id = ++runId.current;
       const alive = () => runId.current === id;
       setError(null);
@@ -57,7 +64,7 @@ export function useDocumentRun(): DocumentRun {
       setPhase("uploading");
       try {
         const { document } = await load();
-        if (!alive()) return;
+        if (!alive()) return null;
         setDoc(document);
         let current = document;
         const needsRun =
@@ -76,17 +83,19 @@ export function useDocumentRun(): DocumentRun {
             current = await api.document(document.document_id);
           }
         }
-        if (!alive()) return;
+        if (!alive()) return null;
         setDoc(current);
         setPhase("done");
+        return null;
       } catch (err) {
-        if (!alive()) return;
-        setError(
+        if (!alive()) return null;
+        const message =
           err instanceof Error && err.message === "timeout"
             ? "This is taking longer than expected. Refresh the page to check on it."
-            : friendlyError(err),
-        );
+            : friendlyError(err);
+        setError(message);
         setPhase("error");
+        return { message, limited: err instanceof ApiError && err.status === 429 };
       } finally {
         if (alive()) refresh();
       }

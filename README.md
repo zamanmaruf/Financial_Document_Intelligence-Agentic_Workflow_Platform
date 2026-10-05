@@ -92,15 +92,25 @@ A website for people who don't read code: recruiters, managers, anyone you want 
 the project. It runs on the same API as everything else, and every result on screen comes from
 the real pipeline.
 
-- **Guided tour** (`/tour`): eight steps, about three minutes. Process a clean invoice and watch
-  each stage finish, open the evidence behind each figure, ask a question and see a refusal, catch
-  a balance sheet whose totals disagree, **act as the reviewer** and correct it, watch hidden
-  instructions in an invoice get flagged instead of followed, then check the tamper-evident audit
-  trail.
-- **Playground** (`/try`): six allow-listed sample documents, or drag in your own PDF; results,
-  questions, review and audit trail for each.
-- **How it works** (`/how-it-works`): the pipeline in plain language, which steps use AI and
-  which don't, a glossary, and what the system doesn't do.
+- **Guided tour** (`/tour`): eight steps, about three minutes, in a split screen with the story on
+  the left and the document on the right. Process a clean invoice and watch each stage finish
+  (with server-measured timings), click a figure and see the words it came from **boxed on the
+  page**, ask a question and click its sources, catch a balance sheet whose totals disagree (both
+  values boxed on their pages), **act as the reviewer** and correct it, watch hidden instructions
+  in an invoice get boxed in red and flagged instead of followed, then check the tamper-evident
+  audit trail. Arrow keys move between steps and `?step=N` links straight to one.
+- **Playground** (`/try`): three panes (your documents, the page viewer, and Results / Ask / Review
+  / Audit tabs). Start from six allow-listed sample documents or drag in your own PDF; the upload
+  rules and your remaining daily allowance are shown upfront.
+- **How it works** (`/how-it-works`): an interactive pipeline diagram (what each step does, why,
+  and what can go wrong, tagged "Uses AI" or "Rules only"), where your data goes, a glossary, and
+  what the system doesn't do.
+
+The **document viewer** is the centre of the site. Pages are rendered to PNG on the server
+(`pypdfium2`), and the boxes come from a text search on the same page
+(`POST /documents/{id}/locate`), so they line up with the exact words. Scanned pages have no text
+layer, so they show without boxes and the viewer says why. Design notes are in
+[ADR-012](docs/adr/ADR-012-design-system-and-document-viewer.md).
 
 Plain words throughout: confidence shows as "Very sure" or "Not sure", review reasons read
 "The document shows different values for the same figure", and dotted terms explain themselves on
@@ -120,6 +130,9 @@ hover. A badge in the header always says whether **Live AI** (Claude on Bedrock)
 Screenshots and the GIF are from the offline engine. To regenerate them, run
 `SCREENSHOTS=1 npx playwright test screenshots --project=desktop` in `web/`, then
 `python scripts/make_tour_gif.py web/test-results/tour-frames docs/images/site-tour.gif`.
+The landing page's product frame uses static files made by `python scripts/export_hero_assets.py`
+(so the landing page makes no API calls), and the link-preview card `web/public/og.png` is made by
+`node scripts/make-og.mjs` in `web/` with the Vite dev server running.
 
 **How it stays safe to leave on the internet** (`DOCINTEL_DEMO_MODE=true`):
 
@@ -336,6 +349,8 @@ same seam to inject fault-injecting mocks.
 | GET | `/audit/verify` | admin |
 | POST | `/documents/{id}/process/background` (returns 202; poll `GET /documents/{id}`) | analyst |
 | GET | `/documents/{id}/audit/verify` (fingerprints of one document's events) | viewer |
+| GET | `/documents/{id}/pages/{n}/image` (PNG render of one page; `ETag`, private cache) | viewer |
+| POST | `/documents/{id}/locate` (up to 50 text snippets → normalised boxes per page; no AI calls) | viewer |
 | POST | `/demo/session` · GET `/demo/status`, `/demo/samples`, `/demo/samples/{id}/file` · POST `/demo/samples/{id}` | demo mode only; visitors |
 
 In demo mode, a request with no API key uses the visitor's session cookie and is limited to the
@@ -497,6 +512,7 @@ app/
   classification/ document classifier (gateway call + thresholds)
   core/           config, errors, hashing, clock/IDs, registry loader, retry/timeout, text utils
   demo/           public demo mode: signed sessions, rate limits, daily budget, samples, retention, jobs
+  documents/      page rendering and text location for the document viewer (pypdfium2)
   domain/         enums and Pydantic domain models
   drift/          drift snapshot and comparison (PSI, rate deltas, ratios)
   evaluation/     metrics, evaluation runner, quality gate
@@ -520,7 +536,8 @@ config/           document_types.yaml (mock keywords + label synonyms), drift.ya
 prompts/          classification/, extraction/, rag/, validation/ — versioned YAML prompts
 evals/            datasets/, thresholds.yaml, baseline.json, drift_baseline.json
 sample_data/      30 synthetic PDFs + ground_truth.json (generated by scripts/generate_sample_data.py)
-scripts/          generate_sample_data, run_evals, quality_gate, drift_report, demo
+scripts/          generate_sample_data, run_evals, quality_gate, drift_report, demo, export_openapi,
+                  export_hero_assets, make_tour_gif
 tests/            unit/, integration/, e2e/, fixtures and shared helpers
 docs/             adr/, interview guide and questions, codebase walkthrough, fine-tuning pathway
 ```

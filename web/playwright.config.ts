@@ -27,6 +27,10 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /mobile\.spec\.ts/ },
     { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile\.spec\.ts/ },
+    // Safari engine, run locally: WEBKIT=1 npx playwright install webkit && WEBKIT=1 npx playwright test --project=webkit
+    ...(process.env.WEBKIT
+      ? [{ name: "webkit", use: { ...devices["Desktop Safari"] }, testMatch: /(tour|a11y)\.spec\.ts/ }]
+      : []),
   ],
   webServer: {
     command: `"${python}" -m uvicorn app.api.main:app --host 127.0.0.1 --port ${PORT}`,

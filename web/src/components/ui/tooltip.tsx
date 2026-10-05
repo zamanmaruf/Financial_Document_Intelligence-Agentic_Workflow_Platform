@@ -9,7 +9,7 @@ export const TooltipTrigger = TooltipPrimitive.Trigger;
 
 export function TooltipContent({
   className,
-  sideOffset = 6,
+  sideOffset = 8,
   ...props
 }: ComponentProps<typeof TooltipPrimitive.Content>) {
   return (
@@ -17,7 +17,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 max-w-xs rounded-md bg-ink px-3 py-2 text-xs leading-relaxed text-white shadow-raised",
+          "z-50 max-w-xs animate-fade-in rounded-lg border border-line-strong bg-surface-overlay px-3 py-2 text-xs leading-relaxed text-ink shadow-float",
           className,
         )}
         {...props}

@@ -290,3 +290,73 @@ def test_status_reports_offline_engine_in_mock_mode(client: TestClient) -> None:
     body = client.get("/demo/status").json()
     assert body["session_active"] is True
     assert body["documents_remaining"] == body["limits"]["documents_per_day"]
+
+
+# --------------------------------------------------------------------------- document viewer
+
+
+def test_page_images_are_scoped_cached_and_revalidated(client: TestClient) -> None:
+    start(client)
+    doc = load(client, "conflicting-figures")["document"]
+    url = f"/documents/{doc['document_id']}/pages/2/image"
+
+    r = client.get(url)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/png"
+    assert r.content.startswith(b"\x89PNG")
+    assert r.headers["cache-control"] == "private, max-age=3600"
+    etag = r.headers["etag"]
+
+    again = client.get(url, headers={"If-None-Match": etag})
+    assert again.status_code == 304 and again.content == b""
+    assert client.get(url, headers={"If-None-Match": '"stale"'}).status_code == 200
+
+    assert client.get(f"/documents/{doc['document_id']}/pages/3/image").status_code == 404
+    assert client.get(f"/documents/{doc['document_id']}/pages/0/image").status_code == 422
+
+    start(client)  # another visitor
+    assert client.get(url).status_code == 404
+    client.cookies.clear()
+    assert client.get(url).status_code == 401
+
+
+def test_locate_returns_boxes_for_both_conflicting_values(client: TestClient) -> None:
+    start(client)
+    doc_id = load(client, "conflicting-figures")["document"]["document_id"]
+    r = client.post(
+        f"/documents/{doc_id}/locate",
+        json={
+            "queries": [
+                {"text": "9,750,000"},
+                {"text": "9,570,000"},
+                {"text": "total ASSETS:  9,570,000", "page": 2},
+                {"text": "not in this document"},
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["has_text_layer"] is True
+    first, second, folded, absent = body["results"]
+    assert [m["page_number"] for m in first["matches"]] == [1]
+    assert [m["page_number"] for m in second["matches"]] == [2]
+    assert folded["page"] == 2 and folded["matches"][0]["page_number"] == 2
+    assert absent["matches"] == []
+    rect = first["matches"][0]["rects"][0]
+    assert set(rect) == {"x", "y", "width", "height"}
+    assert 0 <= rect["x"] <= 1 and 0 <= rect["y"] <= 1
+
+
+def test_locate_validates_input_and_workspace(client: TestClient) -> None:
+    start(client)
+    doc_id = load(client)["document"]["document_id"]
+    url = f"/documents/{doc_id}/locate"
+    too_many = {"queries": [{"text": "x"}] * 51}
+    too_long = {"queries": [{"text": "x" * 501}]}
+    for body in (too_many, too_long, {"queries": []}, {"queries": [{"text": ""}]}):
+        assert client.post(url, json=body).status_code == 422
+    assert client.post(url, json={"queries": [{"text": "x", "page": 0}]}).status_code == 422
+    assert client.post(url, json={"queries": [{"text": "x"}], "extra": 1}).status_code == 422
+
+    start(client)
+    assert client.post(url, json={"queries": [{"text": "Amount"}]}).status_code == 404

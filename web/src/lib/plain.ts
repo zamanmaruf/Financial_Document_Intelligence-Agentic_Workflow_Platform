@@ -239,6 +239,31 @@ export function auditText(event: AuditEvent): string {
   }
 }
 
+/**
+ * How long each processing step took on the server, from the latest run's audit records:
+ * the gap between a step's ``workflow.transition`` and the record before it.
+ */
+export function stepTimings(events: AuditEvent[]): Partial<Record<WorkflowStatus, number>> {
+  const sorted = [...events].sort((a, b) => (a.timestamp ?? "").localeCompare(b.timestamp ?? ""));
+  let start = -1;
+  sorted.forEach((e, i) => {
+    if (e.event_type === "workflow.started") start = i;
+  });
+  if (start < 0) return {};
+  const out: Partial<Record<WorkflowStatus, number>> = {};
+  let previous = Date.parse(sorted[start]?.timestamp ?? "");
+  for (const e of sorted.slice(start + 1)) {
+    if (e.event_type !== "workflow.transition") continue;
+    const to = detail(e, "to");
+    const at = Date.parse(e.timestamp ?? "");
+    if (typeof to === "string" && Number.isFinite(at) && Number.isFinite(previous)) {
+      out[to as WorkflowStatus] = Math.max(0, at - previous);
+    }
+    previous = at;
+  }
+  return out;
+}
+
 export function shortHash(hash: string): string {
   return hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : "";
 }

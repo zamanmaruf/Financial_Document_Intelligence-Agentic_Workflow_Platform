@@ -1,0 +1,98 @@
+{
+  "source": "invoice_01_acme.pdf",
+  "width": 1191,
+  "height": 1684,
+  "fields": [
+    {
+      "name": "invoice_number",
+      "value": "INV-2025-0412",
+      "snippet": "Invoice Number: INV-2025-0412",
+      "rects": [
+        {
+          "x": 0.08588,
+          "y": 0.1172,
+          "width": 0.2884,
+          "height": 0.0077
+        }
+      ]
+    },
+    {
+      "name": "invoice_date",
+      "value": "2025-03-14",
+      "snippet": "Invoice Date: 2025-03-14",
+      "rects": [
+        {
+          "x": 0.08588,
+          "y": 0.13502,
+          "width": 0.23801,
+          "height": 0.0077
+        }
+      ]
+    },
+    {
+      "name": "vendor",
+      "value": "Acme Office Supplies Ltd",
+      "snippet": "Vendor: Acme Office Supplies Ltd",
+      "rects": [
+        {
+          "x": 0.08413,
+          "y": 0.17065,
+          "width": 0.32212,
+          "height": 0.00974
+        }
+      ]
+    },
+    {
+      "name": "customer",
+      "value": "Northwind Traders Inc.",
+      "snippet": "Bill To: Northwind Traders Inc.",
+      "rects": [
+        {
+          "x": 0.0847,
+          "y": 0.18847,
+          "width": 0.30798,
+          "height": 0.0077
+        }
+      ]
+    },
+    {
+      "name": "subtotal",
+      "value": 4850.0,
+      "snippet": "Subtotal: 4,850.00",
+      "rects": [
+        {
+          "x": 0.08551,
+          "y": 0.33108,
+          "width": 0.17804,
+          "height": 0.00917
+        }
+      ]
+    },
+    {
+      "name": "tax",
+      "value": 388.0,
+      "snippet": "Tax (8%): 388.00",
+      "rects": [
+        {
+          "x": 0.08517,
+          "y": 0.34889,
+          "width": 0.15821,
+          "height": 0.00894
+        }
+      ]
+    },
+    {
+      "name": "amount_due",
+      "value": 5238.0,
+      "snippet": "Amount Due: 5,238.00",
+      "rects": [
+        {
+          "x": 0.08413,
+          "y": 0.36671,
+          "width": 0.19957,
+          "height": 0.00917
+        }
+      ]
+    }
+  ]
+}
