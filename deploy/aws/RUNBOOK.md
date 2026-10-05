@@ -65,8 +65,32 @@ curl -s "$URL/health"          # {"status":"ok",...}
 curl -s "$URL/demo/status"     # "ai_mode": "live" while under the daily budget
 ```
 
-Then open the URL, take the guided tour and confirm the badge in the header says **Live AI**.
-Going straight to the load balancer's DNS name should return `403 Forbidden`.
+Then run the smoke tests (needs `make web` once for the Node dependencies and Playwright's
+Chromium):
+
+```bash
+AWS_PROFILE=<profile> make smoke-live   # LIVE_URL=... to point at another deployment
+```
+
+They take about 30 seconds and cost about $0.02 of model usage.
+
+- **Browser and API tests** (`web/e2e-live/`):
+  - Every page loads, unknown addresses get proper 404s, and the CSP, HSTS and caching headers
+    are set.
+  - `/health` reports Bedrock rather than the offline engine.
+  - Accessibility scans pass, there are no console or CSP errors, and the phone layout doesn't
+    scroll sideways.
+  - One visitor can't read another visitor's document, a forged session cookie is rejected, and
+    operator endpoints refuse visitors.
+  - The full eight-step tour runs on live AI.
+- **AWS checks** (`deploy/aws/smoke.sh`, read-only): the task is running and its target is
+  healthy, the load balancer refuses direct requests, model calls in the last hour were live and
+  succeeded, and no errors were logged.
+
+The live site allows 5 new visitor sessions per IP address per hour, and each run uses 2, so run
+it at most about once an hour from the same network. If the limit is hit, the run fails with a
+429 and says how long to wait. Going straight to the load balancer's DNS name times out, because
+its security group only admits CloudFront.
 
 Logs: `aws logs tail /ecs/docintel-demo --follow`.
 

@@ -79,7 +79,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
 | Public guided demo site (`web/`, demo mode) | **Implemented**: tested in CI with the offline engine (Playwright tour, accessibility and mobile checks) and by hand in a browser against the Docker image |
 | Demo-mode protections: visitor workspaces, rate limits, daily live-AI budget, 24-hour retention | **Implemented** and tested; in-memory and single-instance by design ([ADR-011](docs/adr/ADR-011-public-demo.md)) |
-| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Deployed** on 3 October 2026 at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): one Fargate task calling Claude Haiku 4.5 through its IAM task role, with no stored keys. Checked after deploy: pages, CSP and HSTS headers, the load balancer refusing direct access, and a live tour step. Search uses the offline lexical vectoriser, not Titan embeddings |
+| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Deployed** on 3 October 2026 at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): one Fargate task calling Claude Haiku 4.5 through its IAM task role, with no stored keys. Checked after each deploy with `make smoke-live`. Search uses the offline lexical vectoriser, not Titan embeddings |
 | GitHub Actions CI | **Implemented** (quality, web, browser e2e, infrastructure lint and Docker jobs) |
 | Encryption at rest, TLS inside the app, SSO, tracing, WAF | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
 | Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
@@ -514,7 +514,8 @@ app/
   web/            static operator console at /ui (no build step) + serving of the demo site at /
   workflows/      state machine and orchestrator
 web/              public guided demo site: Vite + React + TypeScript, Tailwind, Playwright e2e
-deploy/aws/       CloudFormation template, deploy script and runbook for the public demo
+                  (e2e/ against a local API; e2e-live/ smoke tests against the deployed site)
+deploy/aws/       CloudFormation template, deploy and smoke-check scripts, runbook for the public demo
 config/           document_types.yaml (mock keywords + label synonyms), drift.yaml, pricing.yaml
 prompts/          classification/, extraction/, rag/, validation/ — versioned YAML prompts
 evals/            datasets/, thresholds.yaml, baseline.json, drift_baseline.json
@@ -577,6 +578,7 @@ The container runs as a non-root user with a read-only root filesystem, a tmpfs 
 | `make web-dev` | Vite dev server on :5173 with hot reload, proxying the API on :8000 |
 | `make web-e2e` | Playwright browser tests against a demo-mode API it starts itself |
 | `make deploy` | build, push and deploy the public demo to AWS ([runbook](deploy/aws/RUNBOOK.md)) |
+| `make smoke-live` | smoke tests against the deployed site with live AI, then read-only AWS checks |
 
 ### Configuration reference
 
@@ -1193,6 +1195,7 @@ make check           # lint + typecheck + tests + evaluation gate
 | End-to-end | 54 | FastAPI `TestClient` against the real app: every endpoint, error envelope, request IDs, health degradation, API-key auth and role enforcement; the web console (served with CSP, can be disabled, no `innerHTML`, no third-party resources); demo mode (tampered and expired cookies, workspace isolation including retrieval, operator endpoints closed to visitors, allow-listed samples, background progress, limits and upload caps); serving the site (SPA fallback, caching, path traversal, API routes never shadowed) |
 | Web unit (Vitest) | 9 | plain-language mapping: confidence words, pipeline step states, review reasons, value formatting, audit event text |
 | Browser (Playwright) | 10 | the full eight-step tour against the real API, deep links, 404 page, axe accessibility scans (WCAG 2.1 AA, serious and critical) on every page and on processed results, no console or CSP errors, phone-sized layout without sideways scrolling |
+| Live smoke (manual, after deploy) | 10 + 5 AWS checks | `make smoke-live` against the deployed site with real Claude: pages, 404s, CSP/HSTS/caching headers, `/health` on Bedrock, accessibility, no console errors, phone layout; visitor isolation, forged cookies and operator endpoints; the full tour on live AI with assertions that tolerate varying model wording. Then `deploy/aws/smoke.sh`: task running, target healthy, load balancer refusing direct requests, live and successful model calls, no logged errors. Not in CI, because it costs money and the site rate-limits sessions per IP |
 
 **Prompt changes are deliberate.** `tests/fixtures/prompt_hashes.json` pins each prompt
 template's hash, so editing a prompt fails the tests until the hash is updated and the version
@@ -1210,13 +1213,14 @@ bumped.
    demo site, uploaded as an artifact.
 3. **e2e** job: starts the API in demo mode with the offline engine, serves that build and runs the
    Playwright suite (tour, accessibility, mobile) in Chromium.
-4. **infra** job: `cfn-lint` on the CloudFormation template and a syntax check of `deploy.sh`.
+4. **infra** job: `cfn-lint` on the CloudFormation template and a syntax check of `deploy.sh`
+   and `smoke.sh`.
 5. **docker** job: build the multi-stage image (Node builds the site, Python runs it), start it in
    demo mode, and check `/health`, the site at `/`, its CSP header and the console at `/ui/`.
 
 The same commands also run locally (`make check`, `make web-check`, `make web-e2e`,
 `make docker`). Deployment is a manual `make deploy` ([runbook](deploy/aws/RUNBOOK.md)), not a CI
-step. A production pipeline would push a signed image to a registry and promote it through
+step, followed by a manual `make smoke-live`. A production pipeline would push a signed image to a registry and promote it through
 environments behind a real-provider evaluation gate ([Production roadmap](#24-production-roadmap)).
 
 ## 21. Security & privacy

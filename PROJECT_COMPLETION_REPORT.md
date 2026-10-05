@@ -389,5 +389,15 @@ about ten minutes. Checks against the public URL:
 
 The deployed task uses the offline lexical vectoriser for search, not Titan embeddings.
 
+**Live smoke suite (2026-10-05).** `make smoke-live` runs 10 Playwright tests from
+`web/e2e-live/` against the deployed URL, then the read-only AWS checks in `deploy/aws/smoke.sh`.
+All 10 tests and all 5 AWS checks passed, and the run cost about $0.02 of model usage.
+
+The first run failed the visitor-isolation test, with visitor A reading visitor B's document.
+Checking by hand with two separate cookie jars showed production returning 404 as it should. The
+fault was in the test: request contexts created inside a Playwright test inherit the config's
+shared `storageState`, so "visitor B" was carrying visitor A's cookie. B now starts with an empty
+cookie state, and the test asserts that B's session is newly created.
+
 Still to do: confirm the AWS Budgets email subscription, and deactivate the admin access key used
 for the first deploy.

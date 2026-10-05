@@ -126,8 +126,8 @@ jobs:
           pip install cfn-lint
           cfn-lint deploy/aws/demo-stack.yaml
 
-      - name: Check deploy script syntax
-        run: bash -n deploy/aws/deploy.sh
+      - name: Check deploy script syntax (deploy, smoke)
+        run: bash -n deploy/aws/deploy.sh && bash -n deploy/aws/smoke.sh
 
   e2e:
     runs-on: ubuntu-latest

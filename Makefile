@@ -1,6 +1,6 @@
 .PHONY: install dev test test-unit test-integration test-e2e lint format typecheck eval gate \
         drift drift-baseline baseline data docker docker-run demo lock clean check \
-        web web-dev web-check web-e2e demo-site deploy
+        web web-dev web-check web-e2e demo-site deploy smoke-live
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -99,6 +99,14 @@ demo-site:
 # Build, push and deploy to AWS (see deploy/aws/RUNBOOK.md). Requires ALERT_EMAIL.
 deploy:
 	deploy/aws/deploy.sh
+
+# Smoke tests against the deployed site with real AI (about $0.02 a run; at most about once an
+# hour per IP), then read-only AWS checks when credentials are available. Override LIVE_URL.
+LIVE_URL ?= https://d1cpufi9ii8q1y.cloudfront.net
+smoke-live:
+	cd web && LIVE_URL=$(LIVE_URL) npx playwright test -c playwright.live.config.ts
+	@if aws sts get-caller-identity >/dev/null 2>&1; then deploy/aws/smoke.sh; \
+	else echo "No AWS credentials: skipping the AWS-side checks (deploy/aws/smoke.sh)"; fi
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache reports data htmlcov .coverage
