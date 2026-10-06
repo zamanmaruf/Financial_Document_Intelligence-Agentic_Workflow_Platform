@@ -48,6 +48,7 @@ from app.providers.factory import (
     build_metrics,
     build_ocr_extractor,
     build_vector_store,
+    build_vision_llm_provider,
 )
 from app.providers.llm.base import LLMProvider
 from app.providers.llm.mock import MockLLMProvider
@@ -125,8 +126,6 @@ def build_container(
     llm = llm or build_llm_provider(settings, registry)
     embedder = embedder or build_embedding_provider(settings)
     vector_store = vector_store or build_vector_store(settings, embedder.model_name)
-    ocr_engine = build_ocr_extractor(settings) if ocr is _UNSET else ocr
-    assert ocr_engine is None or isinstance(ocr_engine, DocumentTextExtractor)
 
     engine = create_db_engine(settings.resolved_database_url)
     sf = make_session_factory(engine)
@@ -145,6 +144,9 @@ def build_container(
         budget = DailyBudget(invocations, settings.demo_daily_budget_usd)
         llm = BudgetedLLMProvider(llm, MockLLMProvider(default_handlers(registry)), budget)
 
+    retry_policy = retry_policy or RetryPolicy(
+        max_retries=settings.llm_max_retries, backoff_s=settings.llm_retry_backoff_s
+    )
     gateway = ModelGateway(
         provider=llm,
         prompts=prompts,
@@ -154,12 +156,37 @@ def build_container(
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,
         timeout_s=settings.llm_timeout_s,
-        retry_policy=retry_policy
-        or RetryPolicy(
-            max_retries=settings.llm_max_retries, backoff_s=settings.llm_retry_backoff_s
-        ),
+        retry_policy=retry_policy,
         json_repair_attempts=settings.llm_json_repair_attempts,
     )
+
+    if ocr is _UNSET:
+        vision_gateway = None
+        if settings.ocr_provider.is_vision:
+            vision_gateway = ModelGateway(
+                provider=build_vision_llm_provider(settings),
+                prompts=prompts,
+                invocations=invocations,
+                metrics=metrics,
+                cost=cost,
+                temperature=0.0,
+                max_tokens=settings.ocr_vision_max_tokens,
+                timeout_s=settings.llm_timeout_s,
+                retry_policy=retry_policy,
+                json_repair_attempts=settings.llm_json_repair_attempts,
+            )
+        ocr_engine = build_ocr_extractor(settings, vision_gateway)
+    else:
+        assert ocr is None or isinstance(ocr, DocumentTextExtractor)
+        ocr_engine = ocr
+    # Click-to-locate word boxes come from Tesseract only (ADR-012), including when another
+    # engine produced the document text.
+    word_reader: TesseractOCRExtractor | None = None
+    if isinstance(ocr_engine, TesseractOCRExtractor):
+        word_reader = ocr_engine
+    elif ocr_engine is not None:
+        candidate = TesseractOCRExtractor()
+        word_reader = candidate if candidate.is_available() else None
     store = LocalDocumentStore(settings.data_dir / "documents")
     ingestion = IngestionService(
         documents, store, audit, metrics, settings.max_upload_bytes, settings.effective_max_pages
@@ -268,9 +295,6 @@ def build_container(
         ),
         store=store,
         retention=RetentionRepository(sf),
-        pages=PageService(
-            store,
-            ocr=ocr_engine if isinstance(ocr_engine, TesseractOCRExtractor) else None,
-        ),
+        pages=PageService(store, ocr=word_reader),
         budget=budget,
     )

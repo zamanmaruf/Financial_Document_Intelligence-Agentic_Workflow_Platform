@@ -1808,6 +1808,7 @@
           "native_pdf",
           "ocr_tesseract",
           "ocr_textract",
+          "ocr_vision_llm",
           "none"
         ],
         "title": "TextExtractionMethod",

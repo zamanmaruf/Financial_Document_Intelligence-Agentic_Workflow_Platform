@@ -6,9 +6,37 @@ translate an ``LLMRequest`` to a vendor call and return a normalized ``LLMRespon
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+import base64
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
+
+from app.core.hashing import sha256_bytes
+
+# Used only when a provider reports no usage; real image costs depend on size and model.
+IMAGE_TOKEN_ESTIMATE = 1600
+
+
+class ImageInput(BaseModel):
+    """An image sent with the user message (for example a rendered page for vision OCR)."""
+
+    data_base64: str
+    mime_type: Literal["image/png", "image/jpeg"] = "image/png"
+    sha256: str
+
+    @classmethod
+    def from_bytes(
+        cls, data: bytes, mime_type: Literal["image/png", "image/jpeg"] = "image/png"
+    ) -> ImageInput:
+        return cls(
+            data_base64=base64.b64encode(data).decode("ascii"),
+            mime_type=mime_type,
+            sha256=sha256_bytes(data),
+        )
+
+    @property
+    def data_url(self) -> str:
+        return f"data:{self.mime_type};base64,{self.data_base64}"
 
 
 class LLMRequest(BaseModel):
@@ -21,6 +49,7 @@ class LLMRequest(BaseModel):
     # The structured variables the prompt was rendered from. Real providers ignore this; the
     # deterministic mock provider uses it instead of re-parsing the rendered prompt text.
     variables: dict[str, Any] = Field(default_factory=dict)
+    images: list[ImageInput] = Field(default_factory=list)
 
 
 class LLMResponse(BaseModel):

@@ -73,6 +73,7 @@ class TextExtractionMethod(StrEnum):
     NATIVE_PDF = "native_pdf"
     OCR_TESSERACT = "ocr_tesseract"
     OCR_TEXTRACT = "ocr_textract"
+    OCR_VISION_LLM = "ocr_vision_llm"
     NONE = "none"
 
 

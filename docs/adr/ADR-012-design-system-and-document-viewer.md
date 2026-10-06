@@ -81,7 +81,9 @@ session and costs nothing to view.
   can be slightly off, and a match inside a word boxes the whole word. The viewer says "Boxes on
   scanned pages come from text recognition and may be slightly off". Where OCR isn't configured,
   scanned pages show without boxes and the viewer says "Highlighting isn't available for scanned
-  pages". Textract OCR is used for extraction only; it doesn't provide viewer positions.
+  pages". Textract and vision-model OCR ([ADR-013](ADR-013-vision-ocr.md)) are used for
+  extraction only and don't provide viewer positions; when either is configured and the
+  Tesseract binary is installed, locate still uses Tesseract for the boxes.
 - **Page images aren't cached by the CDN.** They are private to a visitor's session (the cookie
   decides who may see them), so they are served with `Cache-Control: private` and CloudFront
   passes them through. That is intended, not a missed optimisation; the browser still caches them.

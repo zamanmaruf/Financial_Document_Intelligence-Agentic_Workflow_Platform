@@ -27,20 +27,23 @@ class TesseractOCRExtractor:
 
     def extract(self, data: bytes) -> ExtractedText:
         import pypdfium2 as pdfium
-        import pytesseract
 
         pdf = pdfium.PdfDocument(data)
         pages: list[PageText] = []
         try:
             for i in range(len(pdf)):
                 image = pdf[i].render(scale=self._scale).to_pil()
-                # --psm 6: assume a uniform block of text; preserves line structure of tables
-                text = pytesseract.image_to_string(image, lang=self._lang, config="--psm 6")
-                lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
-                pages.append(PageText(page_number=i + 1, text="\n".join(lines)))
+                pages.append(PageText(page_number=i + 1, text=self.read_image(image)))
         finally:
             pdf.close()
         return ExtractedText(pages=pages, method=self.method)
+
+    def read_image(self, image: Image.Image) -> str:
+        import pytesseract
+
+        # --psm 6: assume a uniform block of text; preserves line structure of tables
+        text = pytesseract.image_to_string(image, lang=self._lang, config="--psm 6")
+        return "\n".join(ln.rstrip() for ln in text.splitlines() if ln.strip())
 
     def words(self, image: Image.Image) -> list[OcrWord]:
         """Recognised words with their boxes, for highlighting text on scanned pages."""

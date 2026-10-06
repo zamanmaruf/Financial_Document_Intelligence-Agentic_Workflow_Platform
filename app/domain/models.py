@@ -267,7 +267,7 @@ class WorkflowState(DomainModel):
 
 class ModelInvocation(DomainModel):
     invocation_id: str
-    operation: str  # classification | extraction | rag_answer | judge | embedding
+    operation: str  # classification | extraction | rag_answer | judge | embedding | ocr
     provider: str
     model_name: str
     prompt_name: str | None = None

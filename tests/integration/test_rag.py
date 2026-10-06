@@ -210,3 +210,53 @@ def test_scanned_document_via_ocr_provider_routes_to_review(
     assert any("OCR (textract)" in d for d in case.details)
     extraction = c.extractions.latest_for_document(doc.document_id)
     assert extraction is not None and extraction.value("amount_due") == 1080.0
+
+
+def test_scanned_document_via_vision_ocr_routes_to_review(
+    container_factory: ContainerFactory,
+) -> None:
+    """Vision OCR end to end with a scripted multimodal model (no cloud call)."""
+    from app.observability.cost import CostEstimator
+    from app.providers.ocr.vision_llm import VisionLLMOCRExtractor
+    from app.services.model_gateway import ModelGateway
+    from tests.support import NO_RETRY_DELAY, ROOT
+    from tests.unit.test_vision_ocr import FixedReader, ScriptedVisionProvider
+
+    lines = [
+        "INVOICE",
+        "Invoice Number: SCN-7781",
+        "Invoice Date: 2025-02-11",
+        "Vendor: Delta Paper Co",
+        "Bill To: Northwind Traders Inc.",
+        "Currency: USD",
+        "Subtotal: 1,000.00",
+        "Tax: 80.00",
+        "Amount Due: 1,080.00",
+    ]
+    c = container_factory()
+    vision = ModelGateway(
+        provider=ScriptedVisionProvider([lines]),
+        prompts=c.prompts,
+        invocations=c.invocations,
+        metrics=c.metrics,
+        cost=CostEstimator.load(ROOT / "config"),
+        retry_policy=NO_RETRY_DELAY,
+    )
+    reader = FixedReader("\n".join(lines).replace("1,080.00", "1,030.00"))
+    c.text_extraction.ocr = VisionLLMOCRExtractor(vision, max_edge_px=800, cross_check=reader)
+
+    doc, state = ingest_and_process(c, "edge_scanned_invoice.pdf")
+    assert doc.text_extraction_method is not None
+    assert doc.text_extraction_method.value == "ocr_vision_llm"
+    assert state.review_reasons == [ReviewReason.OCR_USED]
+    assert state.review_id is not None
+    case = c.reviews.get(state.review_id)
+    assert any("OCR (bedrock vision)" in d for d in case.details)
+    assert any("Only the vision model read: 1080" in d for d in case.details)
+    extraction = c.extractions.latest_for_document(doc.document_id)
+    assert extraction is not None and extraction.value("amount_due") == 1080.0
+    ocr_calls = [i for i in c.invocations.all() if i.operation == "ocr"]
+    assert ocr_calls and ocr_calls[0].prompt_name == "ocr.page_transcription"
+    assert ocr_calls[0].document_id == doc.document_id
+    assert ocr_calls[0].workflow_id == state.workflow_id
+    assert ocr_calls[0].estimated_cost_usd is not None

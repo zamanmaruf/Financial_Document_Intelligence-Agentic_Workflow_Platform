@@ -39,7 +39,13 @@ class OCRProviderName(StrEnum):
     AUTO = "auto"  # tesseract if the binary is installed, otherwise none
     TESSERACT = "tesseract"
     TEXTRACT = "textract"
+    BEDROCK_VISION = "bedrock_vision"  # Claude on Bedrock reads rendered page images
+    AZURE_VISION = "azure_vision"  # an Azure OpenAI vision deployment (e.g. gpt-4.1-mini)
     NONE = "none"
+
+    @property
+    def is_vision(self) -> bool:
+        return self in (OCRProviderName.BEDROCK_VISION, OCRProviderName.AZURE_VISION)
 
 
 class MetricsBackendName(StrEnum):
@@ -106,6 +112,15 @@ class Settings(BaseSettings):
     bedrock_model_id: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     bedrock_embedding_model_id: str = "amazon.titan-embed-text-v2:0"
     textract_region: str | None = None
+
+    # Vision OCR (OCR_PROVIDER=bedrock_vision | azure_vision). The model defaults to the chat
+    # model (BEDROCK_MODEL_ID or AZURE_OPENAI_CHAT_DEPLOYMENT); it must accept images.
+    ocr_vision_model: str | None = None
+    ocr_vision_max_edge_px: int = Field(default=1568, ge=512, le=4096)
+    ocr_vision_max_tokens: int = Field(default=4096, ge=256, le=16384)
+    # Also run Tesseract (when installed) and flag pages where the two engines read different
+    # numbers, since a vision model can misread or invent a value without any error.
+    ocr_vision_cross_check: bool = True
 
     # Azure OpenAI
     azure_openai_endpoint: str | None = None
@@ -192,6 +207,21 @@ class Settings(BaseSettings):
             self.demo_secret is None or len(self.demo_secret.get_secret_value()) < 32
         ):
             raise ValueError("demo_mode requires DOCINTEL_DEMO_SECRET of at least 32 characters")
+        if self.ocr_provider.is_vision and self.demo_mode:
+            raise ValueError(
+                "vision OCR is not available in demo mode: its model calls are not covered by the "
+                "daily live budget"
+            )
+        if self.ocr_provider == OCRProviderName.AZURE_VISION and not (
+            self.azure_openai_endpoint
+            and self.azure_openai_api_key
+            and (self.ocr_vision_model or self.azure_openai_chat_deployment)
+        ):
+            raise ValueError(
+                "OCR_PROVIDER=azure_vision requires DOCINTEL_AZURE_OPENAI_ENDPOINT, "
+                "DOCINTEL_AZURE_OPENAI_API_KEY and a deployment (DOCINTEL_OCR_VISION_MODEL or "
+                "DOCINTEL_AZURE_OPENAI_CHAT_DEPLOYMENT)"
+            )
         return self
 
     @property

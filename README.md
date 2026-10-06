@@ -75,6 +75,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | Web console (`/ui`) | **Implemented**: static HTML/JS over the same API, tested in a browser and by e2e tests. An operator console, not a multi-user product UI |
 | AWS Bedrock chat (Claude) and Titan embeddings | **Implemented and verified live** with Claude Haiku 4.5 (cross-region inference profile) and Titan Text Embeddings V2: full evaluation, quality gate passing |
 | AWS Textract OCR, Azure OpenAI embeddings | **Implemented**, tested with stubbed clients; **not yet run against live services** (the test account had no Textract subscription; the failure surfaced as a clean provider error) |
+| Vision OCR with Claude on Bedrock and gpt-4.1-mini on Azure OpenAI (`OCR_PROVIDER=bedrock_vision` / `azure_vision`) | **Implemented**, tested with scripted models and the real SDK request shapes; **not yet run against live services** ([ADR-013](docs/adr/ADR-013-vision-ocr.md)) |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding (the deployed site uses Titan instead) |
 | Public guided demo site (`web/`, demo mode) | **Implemented**: tested in CI with the offline engine (Playwright tour, accessibility and mobile checks) and by hand in a browser against the Docker image |
@@ -239,7 +240,7 @@ routes uncertainty to people instead of hiding it.
 |---|---|
 | PDF upload with validation | size cap enforced while streaming, extension + `%PDF` magic check, encrypted / active-content flags, SHA-256 de-duplication |
 | Native text extraction | `pypdf`, per page |
-| OCR fallback | Tesseract (local, via `pypdfium2` rendering) or AWS Textract; OCR use routes to review, OCR unavailability routes to review |
+| OCR fallback | Tesseract (local, via `pypdfium2` rendering), AWS Textract, or vision OCR with a multimodal model (Claude on Bedrock or an Azure OpenAI vision deployment, cross-checked against Tesseract); OCR use routes to review, OCR unavailability routes to review, an OCR provider error moves the document to `FAILED` (retryable) |
 | Classification | LLM with a versioned prompt → `ClassificationResult` (type, confidence, rationale) |
 | Structured extraction | per-type Pydantic schemas whose field descriptions feed the prompt; evidence quotes verified against the page text, and for numbers the returned value itself must appear in that quote; masked account numbers recomputed from the printed number rather than trusted from the model |
 | Number formats | English (`1,234.56`), European (`1.234,56`), parentheses for negatives, currency symbols; one normaliser shared by extraction, groundedness and evaluation |
@@ -373,7 +374,7 @@ flowchart TB
         QAWF[Question-answering flow<br/>guardrail → retrieve → answer → ground → route]
     end
 
-    DOCWF --> DX[Document Extraction<br/>pypdf · Tesseract / Textract OCR]
+    DOCWF --> DX[Document Extraction<br/>pypdf · Tesseract / Textract / vision-LLM OCR]
     DOCWF --> CL[Classification]
     DOCWF --> EE[Entity Extraction<br/>Pydantic schemas]
     DOCWF --> VAL[Validation<br/>business rules · evidence check]
@@ -459,9 +460,10 @@ stateDiagram-v2
    under a generated ID, never the user-supplied name. Status: `INGESTED`.
 2. **Process.** `POST /documents/{id}/process` runs the orchestrator synchronously:
    1. **Text extraction.** Native text comes from `pypdf`. If the text layer is too sparse
-      (< 40 chars per page), OCR runs (Tesseract or Textract). Using OCR adds the `ocr_used`
-      review reason; if no OCR engine is available the run ends in `NEEDS_REVIEW` with
-      `ocr_unavailable`. Document text is scanned for indirect prompt injection
+      (< 40 chars per page), OCR runs (Tesseract, Textract or a vision model). Using OCR adds
+      the `ocr_used` review reason; if no OCR engine is available the run ends in
+      `NEEDS_REVIEW` with `ocr_unavailable`; if the OCR provider fails the document moves to
+      `FAILED`. Document text is scanned for indirect prompt injection
       (`guardrail_triggered`).
    2. **Classification.** A gateway call with prompt `classification.document_type` v1.0.0. An
       unknown type or confidence < 0.70 routes to review.
@@ -495,7 +497,7 @@ stateDiagram-v2
 | Settings | pydantic-settings | typed environment config; `.env` for local use only |
 | Persistence | SQLAlchemy 2 + SQLite | zero setup locally; change the URL for Postgres |
 | PDF | pypdf, pypdfium2 | pure-Python text extraction; page rendering for OCR |
-| OCR | Tesseract (pytesseract) / AWS Textract | local and managed options |
+| OCR | Tesseract (pytesseract) / AWS Textract / vision LLM (Claude, gpt-4.1-mini) | local, managed and multimodal-model options |
 | LLM integration | LangChain (`langchain-aws`, `langchain-openai`) as adapters only | provider breadth without framework lock-in ([ADR-001](docs/adr/ADR-001-orchestration-framework.md)) |
 | Primary LLM | Claude on AWS Bedrock (`ChatBedrockConverse`) | data stays in the AWS account and region |
 | Secondary LLM | Azure OpenAI (`AzureChatOpenAI`) | vendor diversification |
@@ -610,7 +612,10 @@ combinations fail at start-up with a clear error.
 | `LLM_PROVIDER` | `mock` | `mock` · `bedrock` · `azure_openai` |
 | `EMBEDDING_PROVIDER` | `hashing` | `hashing` · `bedrock` · `azure_openai` |
 | `VECTOR_STORE` | `chroma` | `chroma` · `memory` |
-| `OCR_PROVIDER` | `auto` | `auto` (Tesseract if installed) · `tesseract` · `textract` · `none` |
+| `OCR_PROVIDER` | `auto` | `auto` (Tesseract if installed) · `tesseract` · `textract` · `bedrock_vision` · `azure_vision` · `none` |
+| `OCR_VISION_MODEL` | unset | vision OCR model: a Bedrock model ID or Azure deployment name (defaults to `BEDROCK_MODEL_ID` / `AZURE_OPENAI_CHAT_DEPLOYMENT`; must accept images) |
+| `OCR_VISION_MAX_EDGE_PX` / `OCR_VISION_MAX_TOKENS` | `1568` / `4096` | longest side of the page image sent to the model; output budget per page |
+| `OCR_VISION_CROSS_CHECK` | `true` | also read each page with Tesseract (when installed) and warn the reviewer about numbers the two engines read differently |
 | `METRICS_BACKEND` | `memory` | `memory` · `otel` |
 | `DATA_DIR` / `DATABASE_URL` | `./data` / SQLite in `DATA_DIR` | storage locations |
 | `LLM_TEMPERATURE` / `LLM_MAX_TOKENS` | `0.0` / `1024` | generation parameters |
@@ -1138,7 +1143,8 @@ with the offline hashing embeddings and once with Titan Text Embeddings V2.
   the retrieval budget more than quality on this corpus.
 - **Textract was not verified**: the test account returned `SubscriptionRequiredException`
   (the service hadn't been activated for it). The adapter surfaced this as a provider error, so
-  a scanned document would route to review rather than fail silently.
+  the scanned document moved to `FAILED` with that error type (it can be retried) rather than
+  failing silently or being processed without text.
 
 Thirty synthetic documents are still far too few to claim production accuracy. What these runs
 show is that the real integration works end to end, and that the evaluation loop surfaces real

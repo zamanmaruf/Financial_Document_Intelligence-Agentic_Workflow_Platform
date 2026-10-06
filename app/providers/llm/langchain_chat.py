@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.core.errors import ProviderConfigurationError, ProviderError, ProviderTimeoutError
-from app.providers.llm.base import LLMRequest, LLMResponse, estimate_tokens
+from app.providers.llm.base import IMAGE_TOKEN_ESTIMATE, LLMRequest, LLMResponse, estimate_tokens
 
 if TYPE_CHECKING:
     from langchain_core.language_models.chat_models import BaseChatModel
@@ -41,7 +41,7 @@ class LangChainChatProvider:
     def generate(self, request: LLMRequest) -> LLMResponse:
         messages: list[BaseMessage] = [
             SystemMessage(content=request.system),
-            HumanMessage(content=request.user),
+            _human_message(request),
         ]
         try:
             result = self._chat_model.invoke(messages)
@@ -57,6 +57,7 @@ class LangChainChatProvider:
         estimated = False
         if not input_tokens and not output_tokens:
             input_tokens = estimate_tokens(request.system + request.user)
+            input_tokens += IMAGE_TOKEN_ESTIMATE * len(request.images)
             output_tokens = estimate_tokens(text)
             estimated = True
         metadata: Any = getattr(result, "response_metadata", None) or {}
@@ -71,6 +72,18 @@ class LangChainChatProvider:
             stop_reason=str(stop_reason) if stop_reason else None,
             is_mock=False,
         )
+
+
+def _human_message(request: LLMRequest) -> HumanMessage:
+    if not request.images:
+        return HumanMessage(content=request.user)
+    # OpenAI-style image_url blocks with base64 data URLs: AzureChatOpenAI sends them as-is and
+    # ChatBedrockConverse converts them to Converse image blocks.
+    blocks: list[str | dict[str, Any]] = [{"type": "text", "text": request.user}]
+    blocks.extend(
+        {"type": "image_url", "image_url": {"url": image.data_url}} for image in request.images
+    )
+    return HumanMessage(content=blocks)
 
 
 def _content_to_text(content: Any) -> str:

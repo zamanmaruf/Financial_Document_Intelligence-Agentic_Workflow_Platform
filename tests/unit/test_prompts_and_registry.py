@@ -24,7 +24,7 @@ def prompts() -> PromptRegistry:
 class TestPromptRegistry:
     def test_all_required_categories_present(self, prompts: PromptRegistry) -> None:
         names = {p["name"] for p in prompts.catalog()}
-        for category in ("classification", "extraction", "rag", "validation"):
+        for category in ("classification", "extraction", "ocr", "rag", "validation"):
             assert any(n.startswith(f"{category}.") for n in names), category
             assert (PROMPTS_DIR / category).is_dir()
 

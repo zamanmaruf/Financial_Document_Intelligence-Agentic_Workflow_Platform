@@ -1187,7 +1187,7 @@ export interface components {
          * TextExtractionMethod
          * @enum {string}
          */
-        TextExtractionMethod: "native_pdf" | "ocr_tesseract" | "ocr_textract" | "none";
+        TextExtractionMethod: "native_pdf" | "ocr_tesseract" | "ocr_textract" | "ocr_vision_llm" | "none";
         /** UploadResponse */
         UploadResponse: {
             document: components["schemas"]["DocumentResponse"];

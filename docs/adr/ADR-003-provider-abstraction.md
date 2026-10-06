@@ -54,8 +54,12 @@ DOCINTEL_AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o
 - The real adapters are unit-tested with LangChain fake chat models and construct real SDK clients
   offline. **The Azure OpenAI adapter has since been verified live** (`gpt-4.1-mini`): the first
   real-provider run was the evaluation suite, as intended, and it surfaced four issues that the
-  mock could not (see the README's "Real-model results"). The Bedrock adapter has not yet been run
-  against a live endpoint.
+  mock could not (see the README's "Real-model results"). The Bedrock adapter (Claude Haiku 4.5
+  and Titan embeddings) has also been verified live, and it serves the public demo.
+- `LLMRequest.images` lets the same adapters carry page images (OpenAI-style `image_url` blocks
+  with base64 data URLs, which `ChatBedrockConverse` converts to Converse image blocks). Vision
+  OCR ([ADR-013](ADR-013-vision-ocr.md)) uses this through its own `ModelGateway`, so image
+  calls get the same retries, validation, cost estimation and invocation logging.
 - Prompts are shared across vendors. If vendor-specific prompt variants become necessary, the
   registry supports multiple versions per prompt name.
 - Automatic cross-vendor failover is intentionally **not** implemented: switching vendor changes model

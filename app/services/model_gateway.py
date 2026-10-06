@@ -31,7 +31,7 @@ from app.observability.cost import CostEstimator
 from app.observability.logging import log_event
 from app.observability.metrics import MetricsRecorder
 from app.prompts.registry import PromptRegistry, PromptSpec
-from app.providers.llm.base import LLMProvider, LLMRequest, LLMResponse
+from app.providers.llm.base import ImageInput, LLMProvider, LLMRequest, LLMResponse
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +108,7 @@ class ModelGateway:
         document_id: str | None = None,
         workflow_id: str | None = None,
         prompt_version: str | None = None,
+        images: list[ImageInput] | None = None,
     ) -> GatewayResult[T]:
         spec = self.prompts.get(prompt_name, prompt_version)
         system, user = spec.render(**render_vars)
@@ -119,7 +120,9 @@ class ModelGateway:
             prompt_name=spec.name,
             prompt_version=spec.version,
             variables=structured_vars if structured_vars is not None else render_vars,
+            images=images or [],
         )
+        image_hashes = [image.sha256 for image in request.images]
 
         started = time.perf_counter()
         retries = 0
@@ -145,6 +148,7 @@ class ModelGateway:
                     success=False,
                     error_type=exc.error_type,
                     served_by=last_response,
+                    image_hashes=image_hashes,
                 )
                 raise
             last_response = response
@@ -178,6 +182,7 @@ class ModelGateway:
                 success=True,
                 error_type=None,
                 served_by=response,
+                image_hashes=image_hashes,
             )
             return GatewayResult(output=output, invocation=invocation, prompt=spec)
 
@@ -194,6 +199,7 @@ class ModelGateway:
             success=False,
             error_type=ProviderResponseError.error_type,
             served_by=last_response,
+            image_hashes=image_hashes,
         )
         raise ProviderResponseError(
             f"{operation}: model output failed schema validation after "
@@ -242,6 +248,7 @@ class ModelGateway:
         success: bool,
         error_type: str | None,
         served_by: LLMResponse | None = None,
+        image_hashes: list[str] | None = None,
     ) -> ModelInvocation:
         latency_ms = round((time.perf_counter() - started) * 1000, 3)
         # Identity comes from the response when there is one: a wrapping provider (the demo
@@ -312,5 +319,6 @@ class ModelGateway:
             success=success,
             error_type=error_type,
             is_mock=inv.is_mock,
+            **({"image_sha256": image_hashes} if image_hashes else {}),
         )
         return inv
