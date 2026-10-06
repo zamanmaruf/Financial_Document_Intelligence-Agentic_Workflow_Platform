@@ -21,7 +21,7 @@ IAM task role, so no AWS keys are stored anywhere in the deployment.
 | IAM task role | `bedrock:InvokeModel` on the configured Claude model and the Titan embedding model, nothing else |
 | IAM execution role | Pull the image, write logs, read the session secret from SSM |
 | CloudWatch log group | `/ecs/<stack>`, 14-day retention |
-| AWS Budgets budget | Emails at 80% of the monthly amount (actual) and 100% (forecast) |
+| AWS Budgets budget | Emails at 80% of the monthly amount (actual) and 100% (forecast). Named `<stack>-monthly-<alert email>`: changing `ALERT_EMAIL` replaces the budget, and a replacement can't reuse the old name |
 | SSM parameters (created by the script) | `/docintel/demo/session-secret` (SecureString) signs visitor cookies; `/docintel/demo/origin-verify` is the CloudFront-to-ALB header value |
 
 ## Before the first deploy

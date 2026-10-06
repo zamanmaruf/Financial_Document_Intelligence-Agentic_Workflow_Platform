@@ -241,7 +241,7 @@ Resources:
                   - budgets:TagResource
                   - budgets:UntagResource
                   - budgets:ListTagsForResource
-                Resource: !Sub "arn:aws:budgets::${AWS::AccountId}:budget/${DemoStackName}-monthly"
+                Resource: !Sub "arn:aws:budgets::${AWS::AccountId}:budget/${DemoStackName}-monthly*"
 
   # The GitHub Actions job assumes this role. It can change only the demo stack, and only by
   # handing CloudFormation the execution role above; it can't create resources directly.
