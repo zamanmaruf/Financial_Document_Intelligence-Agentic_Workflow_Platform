@@ -72,6 +72,10 @@ test("the guided tour runs end to end on live AI", async ({ page }) => {
 
 test("a scanned upload is read with OCR and its values are boxed on the page", async ({ page }) => {
   // One upload, about $0.01. The page has no text layer, so boxes come from text recognition.
+  // The suite shares one IP and production allows 120 requests a minute (sliding window), so
+  // let the requests of the tests before this one age out first.
+  test.setTimeout(240_000);
+  await page.waitForTimeout(60_000);
   const scanned = resolve(import.meta.dirname, "../../sample_data/pdfs/edge_scanned_invoice.pdf");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/try");
