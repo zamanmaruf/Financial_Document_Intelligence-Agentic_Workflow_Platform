@@ -106,9 +106,28 @@ blocking work moved off the event loop (`run_in_threadpool`).
 
 `deploy/aws/demo-stack.yaml` runs one ARM64 Fargate task behind an ALB, which only accepts
 CloudFront's origin-facing prefix list plus a secret origin header, and CloudFront for HTTPS.
-The task role allows only `bedrock:InvokeModel` on the configured inference profile and its
-foundation model. The session secret is in SSM. An AWS Budgets alert at $30 a month is the
+The task role allows only `bedrock:InvokeModel` on the configured inference profile, its
+foundation model and the Titan Text Embeddings V2 model. Search on the deployed site uses Titan
+(semantic) rather than the offline hashing vectoriser; round 3 of the real-model evaluation passed
+the quality gate with Titan at the same retrieval thresholds. Embedding calls aren't counted toward
+the daily live budget (they cost a fraction of a cent per document). The session secret is in SSM. An AWS Budgets alert at $30 a month is the
 backstop.
+
+### Delivery: GitHub Actions with OIDC
+
+After `ci` passes on `main`, `.github/workflows/deploy.yml` waits for a reviewer in the GitHub
+environment `production`, assumes `docintel-github-deploy` with GitHub's OIDC token, runs
+`deploy.sh` on an ARM64 runner and then the live smoke tests. The deploy role can only create
+change sets on the demo stack that name the CloudFormation service role `docintel-cfn-exec`, which
+holds the resource permissions (`deploy/aws/github-oidc.yaml`).
+
+- **Why OIDC instead of access keys:** nothing long-lived to leak or rotate, and the trust policy
+  pins the repository and the environment, so a workflow on another branch or fork can't assume it.
+- **Why approval instead of deploying on every green build:** a deploy resets the demo's
+  on-disk state (see Consequences) and costs a smoke run of live model calls.
+- **Why a service role:** the GitHub role can't create or delete AWS resources directly; it can
+  only ask CloudFormation to apply this template. Because the template could itself be changed in
+  an approved commit, the approval is the real control.
 
 ## Alternatives considered
 

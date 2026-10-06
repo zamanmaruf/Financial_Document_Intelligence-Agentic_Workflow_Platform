@@ -14,7 +14,7 @@ concurrency:
 
 env:
   # Everything in CI runs offline against the deterministic mock provider: no paid APIs, no
-  # cloud credentials. Real-provider evaluation is a separate, manually triggered job (roadmap).
+  # cloud credentials. Deployment and the live smoke tests run in deploy.yml after CI passes.
   DOCINTEL_LLM_PROVIDER: mock
   DOCINTEL_EMBEDDING_PROVIDER: hashing
   DOCINTEL_LOG_JSON: "false"
@@ -121,13 +121,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Lint CloudFormation template
+      - name: Lint CloudFormation templates
         run: |
           pip install cfn-lint
-          cfn-lint deploy/aws/demo-stack.yaml
+          cfn-lint deploy/aws/demo-stack.yaml deploy/aws/github-oidc.yaml
 
       - name: Check deploy script syntax (deploy, smoke)
         run: bash -n deploy/aws/deploy.sh && bash -n deploy/aws/smoke.sh
+
+      - name: Lint GitHub Actions workflows
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
 
   e2e:
     runs-on: ubuntu-latest
@@ -197,7 +202,7 @@ jobs:
             -e DOCINTEL_DEMO_MODE=true \
             -e DOCINTEL_DEMO_SECRET="$(openssl rand -hex 32)" \
             fin-docintel:ci
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8000/health; then break; fi
             sleep 2
           done

@@ -76,11 +76,11 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | AWS Bedrock chat (Claude) and Titan embeddings | **Implemented and verified live** with Claude Haiku 4.5 (cross-region inference profile) and Titan Text Embeddings V2: full evaluation, quality gate passing |
 | AWS Textract OCR, Azure OpenAI embeddings | **Implemented**, tested with stubbed clients; **not yet run against live services** (the test account had no Textract subscription; the failure surfaced as a clean provider error) |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
-| Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding |
+| Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding (the deployed site uses Titan instead) |
 | Public guided demo site (`web/`, demo mode) | **Implemented**: tested in CI with the offline engine (Playwright tour, accessibility and mobile checks) and by hand in a browser against the Docker image |
 | Demo-mode protections: visitor workspaces, rate limits, daily live-AI budget, 24-hour retention | **Implemented** and tested; in-memory and single-instance by design ([ADR-011](docs/adr/ADR-011-public-demo.md)) |
-| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Deployed** on 3 October 2026 at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): one Fargate task calling Claude Haiku 4.5 through its IAM task role, with no stored keys. Checked after each deploy with `make smoke-live`. Search uses the offline lexical vectoriser, not Titan embeddings |
-| GitHub Actions CI | **Implemented** (quality, web, browser e2e, infrastructure lint and Docker jobs) |
+| AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Deployed** on 3 October 2026 at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): one Fargate task calling Claude Haiku 4.5 and Titan Text Embeddings V2 (semantic search) through its IAM task role, with no stored keys. Deployed by the GitHub Actions workflow and checked after each deploy with `make smoke-live` |
+| GitHub Actions CI/CD | **Implemented and in use**: CI (quality, web, browser e2e, infrastructure lint and Docker jobs) on every push and pull request; after CI passes on `main`, a deploy workflow waits for approval, signs in to AWS through OIDC (no stored keys), deploys and runs the live smoke tests |
 | Encryption at rest, TLS inside the app, SSO, tracing, WAF | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
 | Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
 
@@ -615,6 +615,7 @@ combinations fail at start-up with a clear error.
 | `DATA_DIR` / `DATABASE_URL` | `./data` / SQLite in `DATA_DIR` | storage locations |
 | `LLM_TEMPERATURE` / `LLM_MAX_TOKENS` | `0.0` / `1024` | generation parameters |
 | `LLM_TIMEOUT_S` / `LLM_MAX_RETRIES` | `60` / `2` | per-call timeout, retries after the first attempt |
+| `EMBEDDING_TIMEOUT_S` | `30` | per-call timeout for Bedrock and Azure embeddings (each client retries itself, up to 3 attempts in total) |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `600` / `80` | chunking (overlap must be smaller than size) |
 | `RETRIEVAL_TOP_K` | `4` | chunks retrieved per question |
 | `RETRIEVAL_MIN_SCORE` / `RETRIEVAL_MIN_SCORE_SCOPED` | `0.12` / `0.03` | similarity floor for corpus-wide / single-document questions |
@@ -1214,7 +1215,7 @@ make check           # lint + typecheck + tests + evaluation gate
 | End-to-end | 54 | FastAPI `TestClient` against the real app: every endpoint, error envelope, request IDs, health degradation, API-key auth and role enforcement; the web console (served with CSP, can be disabled, no `innerHTML`, no third-party resources); demo mode (tampered and expired cookies, workspace isolation including retrieval, operator endpoints closed to visitors, allow-listed samples, background progress, limits and upload caps); serving the site (SPA fallback, caching, path traversal, API routes never shadowed) |
 | Web unit (Vitest) | 9 | plain-language mapping: confidence words, pipeline step states, review reasons, value formatting, audit event text |
 | Browser (Playwright) | 10 | the full eight-step tour against the real API, deep links, 404 page, axe accessibility scans (WCAG 2.1 AA, serious and critical) on every page and on processed results, no console or CSP errors, phone-sized layout without sideways scrolling |
-| Live smoke (manual, after deploy) | 10 + 5 AWS checks | `make smoke-live` against the deployed site with real Claude: pages, 404s, CSP/HSTS/caching headers, `/health` on Bedrock, accessibility, no console errors, phone layout; visitor isolation, forged cookies and operator endpoints; the full tour on live AI with assertions that tolerate varying model wording. Then `deploy/aws/smoke.sh`: task running, target healthy, load balancer refusing direct requests, live and successful model calls, no logged errors. Not in CI, because it costs money and the site rate-limits sessions per IP |
+| Live smoke (after each deploy) | 10 + 5 AWS checks | `make smoke-live` against the deployed site with real Claude: pages, 404s, CSP/HSTS/caching headers, `/health` on Bedrock, accessibility, no console errors, phone layout; visitor isolation, forged cookies and operator endpoints; the full tour on live AI with assertions that tolerate varying model wording. Then `deploy/aws/smoke.sh`: task running, target healthy, load balancer refusing direct requests, live and successful model calls, no logged errors. Runs in the deploy workflow after every deploy (not on pull requests, because it costs money and the site rate-limits sessions per IP) |
 
 **Prompt changes are deliberate.** `tests/fixtures/prompt_hashes.json` pins each prompt
 template's hash, so editing a prompt fails the tests until the hash is updated and the version
@@ -1232,15 +1233,29 @@ bumped.
    demo site, uploaded as an artifact.
 3. **e2e** job: starts the API in demo mode with the offline engine, serves that build and runs the
    Playwright suite (tour, accessibility, mobile) in Chromium.
-4. **infra** job: `cfn-lint` on the CloudFormation template and a syntax check of `deploy.sh`
-   and `smoke.sh`.
+4. **infra** job: `cfn-lint` on both CloudFormation templates, a syntax check of `deploy.sh`
+   and `smoke.sh`, and `actionlint` (with shellcheck) on the workflows.
 5. **docker** job: build the multi-stage image (Node builds the site, Python runs it), start it in
    demo mode, and check `/health`, the site at `/`, its CSP header and the console at `/ui/`.
 
 The same commands also run locally (`make check`, `make web-check`, `make web-e2e`,
-`make docker`). Deployment is a manual `make deploy` ([runbook](deploy/aws/RUNBOOK.md)), not a CI
-step, followed by a manual `make smoke-live`. A production pipeline would push a signed image to a registry and promote it through
-environments behind a real-provider evaluation gate ([Production roadmap](#24-production-roadmap)).
+`make docker`).
+
+**Continuous deployment.** `.github/workflows/deploy.yml` runs when `ci` succeeds on a push to
+`main`:
+
+1. It waits in the protected GitHub environment `production` for a reviewer's approval.
+2. It signs in to AWS with GitHub's OIDC token: no AWS keys are stored in GitHub. The role it
+   assumes can only change the demo stack, and only through a CloudFormation service role.
+3. It builds the ARM64 image natively, pushes it to ECR and updates the stack (`deploy.sh`);
+   CloudFormation waits for the new task to pass its health check and rolls back if it doesn't.
+4. It runs `make smoke-live` against the deployed URL: the live browser tests, then the AWS-side
+   checks.
+
+The roles and the one-off setup are in the [runbook](deploy/aws/RUNBOOK.md#continuous-deployment).
+`make deploy` from a laptop still works. Not done yet: signed images, an SBOM, separate staging and
+production environments, and a real-provider evaluation gate before deploying
+([Production roadmap](#24-production-roadmap)).
 
 ## 21. Security & privacy
 

@@ -5,7 +5,8 @@
 #
 # Uses the standard AWS CLI credential chain (AWS_PROFILE etc.); run it with an admin profile
 # for the first deploy. Optional: STACK (default docintel-demo), AWS_REGION (default us-east-1),
-# MONTHLY_BUDGET_USD (30), DAILY_LIVE_BUDGET_USD (2.0). See deploy/aws/RUNBOOK.md.
+# MONTHLY_BUDGET_USD (30), DAILY_LIVE_BUDGET_USD (2.0), CFN_ROLE_ARN (CloudFormation service
+# role from deploy/aws/github-oidc.yaml; GitHub Actions sets it). See deploy/aws/RUNBOOK.md.
 set -euo pipefail
 
 STACK="${STACK:-docintel-demo}"
@@ -13,6 +14,7 @@ export AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 ALERT_EMAIL="${ALERT_EMAIL:?set ALERT_EMAIL to receive budget alerts}"
 MONTHLY_BUDGET_USD="${MONTHLY_BUDGET_USD:-30}"
 DAILY_LIVE_BUDGET_USD="${DAILY_LIVE_BUDGET_USD:-2.0}"
+CFN_ROLE_ARN="${CFN_ROLE_ARN:-}"
 SESSION_SECRET_PARAM="/docintel/demo/session-secret"
 ORIGIN_SECRET_PARAM="/docintel/demo/origin-verify"
 
@@ -45,6 +47,10 @@ PREFIX_LIST="$(aws ec2 describe-managed-prefix-lists \
   --query 'PrefixLists[0].PrefixListId' --output text)"
 [[ "$PREFIX_LIST" == pl-* ]] || { echo "CloudFront prefix list not found in $AWS_REGION" >&2; exit 1; }
 
+# Once a stack has a service role, CloudFormation keeps using it even when none is passed.
+role_args=()
+[[ -n "$CFN_ROLE_ARN" ]] && role_args=(--role-arn "$CFN_ROLE_ARN")
+
 deploy_stack() {
   local count="$1" tag="$2"
   aws cloudformation deploy \
@@ -52,6 +58,7 @@ deploy_stack() {
     --template-file "$TEMPLATE" \
     --capabilities CAPABILITY_IAM \
     --no-fail-on-empty-changeset \
+    ${role_args[@]+"${role_args[@]}"} \
     --parameter-overrides \
       "ImageTag=$tag" \
       "DesiredCount=$count" \

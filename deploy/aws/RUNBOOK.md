@@ -4,9 +4,9 @@ This deploys the guided demo site and API as **one container on ECS Fargate** be
 Application Load Balancer and CloudFront. The container calls Claude on Amazon Bedrock using an
 IAM task role, so no AWS keys are stored anywhere in the deployment.
 
-> Status: the template passes `cfn-lint`, the image is built and tested in CI, and the deploy script
-> is written for the AWS CLI. Run the first deploy yourself with an admin profile and check the
-> result. Nothing here has been deployed automatically.
+> Status: deployed and in use. The first deploy was run by hand with an admin profile; since then,
+> every push to `main` that passes CI is deployed by GitHub Actions after a reviewer approves it
+> (see [Continuous deployment](#continuous-deployment)). `make deploy` still works from a laptop.
 
 ## What gets created
 
@@ -17,7 +17,7 @@ IAM task role, so no AWS keys are stored anywhere in the deployment.
 | ECS cluster, task definition, service | One ARM64 task, 0.5 vCPU / 1 GB |
 | Application Load Balancer | Accepts traffic only from CloudFront's address ranges, and only with CloudFront's secret header |
 | CloudFront distribution | HTTPS for visitors, HSTS, caches `/assets/*`, passes everything else through |
-| IAM task role | `bedrock:InvokeModel` on the one configured model, nothing else |
+| IAM task role | `bedrock:InvokeModel` on the configured Claude model and the Titan embedding model, nothing else |
 | IAM execution role | Pull the image, write logs, read the session secret from SSM |
 | CloudWatch log group | `/ecs/<stack>`, 14-day retention |
 | AWS Budgets budget | Emails at 80% of the monthly amount (actual) and 100% (forecast) |
@@ -26,8 +26,9 @@ IAM task role, so no AWS keys are stored anywhere in the deployment.
 ## Before the first deploy
 
 1. **Bedrock model access.** In the Bedrock console for your region, make sure Claude Haiku 4.5
-   is enabled (Model access). The default model id is the US cross-region inference profile
-   `us.anthropic.claude-haiku-4-5-20251001-v1:0`.
+   and Titan Text Embeddings V2 are enabled (Model access). The default chat model id is the US
+   cross-region inference profile `us.anthropic.claude-haiku-4-5-20251001-v1:0`; embeddings use
+   `amazon.titan-embed-text-v2:0` in the stack's region.
 2. **Tools.** AWS CLI v2, Docker (with buildx, which Docker Desktop includes), git, openssl.
 3. **Credentials.** An admin profile for the first deploy, e.g. `export AWS_PROFILE=admin`. The
    `docintel` IAM user used for local development has only Bedrock permissions and can't create
@@ -94,9 +95,51 @@ its security group only admits CloudFront.
 
 Logs: `aws logs tail /ecs/docintel-demo --follow`.
 
+## Continuous deployment
+
+`.github/workflows/deploy.yml` runs after the `ci` workflow succeeds on a push to `main`:
+
+1. The job waits in the GitHub environment `production` until a required reviewer approves it.
+2. It exchanges GitHub's OIDC token for a one-hour session on the IAM role
+   `docintel-github-deploy`. No AWS keys are stored in GitHub.
+3. It runs `deploy/aws/deploy.sh` on an ARM64 runner (native `linux/arm64` build) with
+   `CFN_ROLE_ARN` set, so CloudFormation changes the stack's resources with the service role
+   `docintel-cfn-exec` instead of the caller's permissions.
+4. It runs `make smoke-live` against the stack's URL: the browser tests and the AWS-side checks.
+   A failure uploads the Playwright report as an artifact.
+
+Deploys never overlap (one concurrency group, never cancelled mid-deploy).
+
+**One-off setup** (already done for this account):
+
+```bash
+AWS_PROFILE=<admin> make deploy-cd-bootstrap   # deploy/aws/github-oidc.yaml, stack docintel-github-deploy
+```
+
+It creates the GitHub OIDC provider (set `CreateOidcProvider=false` if the account already has
+one) and two roles, and prints their ARNs. Then, in the repository's GitHub settings:
+
+1. **Environments → New environment** `production`: add yourself under *Required reviewers* and
+   limit *Deployment branches* to `main`.
+2. In that environment, add the variables `AWS_DEPLOY_ROLE_ARN` and `AWS_CFN_ROLE_ARN` (the two
+   ARNs) and `ALERT_EMAIL`. None of them is a secret.
+
+**What the roles can do:**
+
+| Role | Trusted by | Permissions |
+| --- | --- | --- |
+| `docintel-github-deploy` | GitHub OIDC tokens whose subject is `repo:<owner>/<repo>:environment:production` | Create change sets on the demo stack **only with** the service role below, execute them, push images to the stack's ECR repository, read the two SSM parameters, and the read-only calls `smoke.sh` makes |
+| `docintel-cfn-exec` | CloudFormation in this account | Manage the demo stack's resources. IAM, ECS, ECR, logs, load balancers, SSM and Budgets are limited to the stack's resource names; EC2 networking and CloudFront are limited by service, because CloudFormation generates their names |
+
+Anyone who can get a change approved can change what the stack creates (for example the task
+role's policy), so the approval in the `production` environment is the real control, not the IAM
+scoping alone. Once the stack has a service role, CloudFormation keeps using it for later updates,
+including `make deploy` from a laptop.
+
 ## Day-to-day
 
-- **Redeploy after a code change:** commit, then `make deploy` again.
+- **Redeploy after a code change:** push to `main`; approve the `deploy` run in GitHub Actions
+  once CI passes. `make deploy` from a laptop with an admin profile does the same.
 - **Live budget:** the app estimates the cost of each model call and switches to the offline engine
   for the rest of the UTC day once `DAILY_LIVE_BUDGET_USD` is reached. The header badge and every
   result say which engine produced them.
@@ -140,6 +183,9 @@ alert defaults to $30 a month: it **emails you**, it does not stop anything.
   Postgres (RDS), S3 for files, and a durable, write-once store for the audit log.
 - **The daily live budget is a soft cap.** Spend is summed from the app's own cost estimates
   (cached for a few seconds), and the total resets if the task restarts. AWS Budgets is the backstop.
+- **Embedding calls aren't counted toward the daily budget**, and they keep using Titan after the
+  budget switches answers to the offline engine. They cost about $0.00002 per 1,000 tokens, so even
+  the per-visitor upload limits at full use add cents a day; the rate limits bound them.
 - **One task only.** Rate limits and sessions are held in memory; running two tasks would split them.
 - **Rate limits are per task and in memory.** They slow down casual abuse; they are not a WAF.
   Add AWS WAF with a rate-based rule in front of CloudFront if the link is shared widely.

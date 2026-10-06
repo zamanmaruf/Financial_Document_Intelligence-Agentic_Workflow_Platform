@@ -1,6 +1,6 @@
 .PHONY: install dev test test-unit test-integration test-e2e lint format typecheck eval gate \
         drift drift-baseline baseline data docker docker-run demo lock clean check \
-        web web-dev web-check web-e2e demo-site deploy smoke-live
+        web web-dev web-check web-e2e demo-site deploy deploy-cd-bootstrap smoke-live
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -99,6 +99,14 @@ demo-site:
 # Build, push and deploy to AWS (see deploy/aws/RUNBOOK.md). Requires ALERT_EMAIL.
 deploy:
 	deploy/aws/deploy.sh
+
+# One-off, with an admin profile: the GitHub OIDC provider and the roles the deploy workflow uses.
+deploy-cd-bootstrap:
+	aws cloudformation deploy --stack-name docintel-github-deploy \
+		--template-file deploy/aws/github-oidc.yaml --capabilities CAPABILITY_NAMED_IAM \
+		--no-fail-on-empty-changeset
+	@aws cloudformation describe-stacks --stack-name docintel-github-deploy \
+		--query "Stacks[0].Outputs[].[OutputKey,OutputValue]" --output text
 
 # Smoke tests against the deployed site with real AI (about $0.02 a run; at most about once an
 # hour per IP), then read-only AWS checks when credentials are available. Override LIVE_URL.

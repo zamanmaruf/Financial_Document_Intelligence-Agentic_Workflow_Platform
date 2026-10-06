@@ -1,0 +1,84 @@
+name: deploy
+
+# Continuous deployment of the public demo. Runs after the ci workflow succeeds on a push to
+# main, then waits in the protected "production" environment until a reviewer approves it.
+# AWS access comes from GitHub's OIDC token (deploy/aws/github-oidc.yaml); no keys are stored.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04-arm # builds the linux/arm64 image natively for Fargate ARM64
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: ${{ steps.site.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-1
+      STACK: docintel-demo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Sign in to AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: docintel-deploy-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Build, push and deploy
+        env:
+          ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
+          CFN_ROLE_ARN: ${{ vars.AWS_CFN_ROLE_ARN }}
+        run: deploy/aws/deploy.sh
+
+      - name: Site URL
+        id: site
+        run: |
+          url=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='SiteUrl'].OutputValue" --output text)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install browser test tools
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Live smoke tests (browser and AWS checks)
+        run: make smoke-live LIVE_URL="${{ steps.site.outputs.url }}"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-smoke-report
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore
