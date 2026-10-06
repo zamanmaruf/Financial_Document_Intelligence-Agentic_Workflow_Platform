@@ -59,19 +59,26 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=ROOT / "reports" / "eval_results.json")
     parser.add_argument("--update-baseline", action="store_true")
+    parser.add_argument(
+        "--run-name", help="label stored in the report, e.g. bedrock-titan-llamaindex"
+    )
     args = parser.parse_args()
 
     configure_logging("WARNING", json_logs=False)
     logging.getLogger("app").setLevel(logging.ERROR)
     settings = Settings()
-    result = EvaluationRunner(settings).run()
+    result = EvaluationRunner(settings, run_name=args.run_name).run()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(result.model_dump_json(indent=2))
 
     mode = "MOCK (deterministic simulated model)" if result.is_mock else "REAL PROVIDER"
     print(f"\nEvaluation run {result.run_id}  mode={mode}  duration={result.duration_s}s")
-    print(f"llm={result.config['llm_model']}  embeddings={result.config['embedding_model']}")
+    print(
+        f"run={result.config['run_name']}  llm={result.config['llm_model']}  "
+        f"embeddings={result.config['embedding_model']}  rag_engine={result.config['rag_engine']}  "
+        f"vector_store={result.config['vector_store']}"
+    )
     for category, keys in SUMMARY_KEYS.items():
         values = result.metrics.get(category, {})
         cells = [f"{k}={values[k]}" for k in keys if k in values]

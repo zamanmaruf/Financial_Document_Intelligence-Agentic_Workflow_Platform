@@ -47,6 +47,7 @@ from app.providers.factory import (
     build_llm_provider,
     build_metrics,
     build_ocr_extractor,
+    build_retriever,
     build_vector_store,
     build_vision_llm_provider,
 )
@@ -57,9 +58,9 @@ from app.providers.ocr.tesseract import TesseractOCRExtractor
 from app.providers.storage.local import DocumentStore, LocalDocumentStore
 from app.providers.vectorstore.base import VectorStore
 from app.rag.service import RAGService, RAGSettings
+from app.retrieval.base import RetrieverProtocol
 from app.retrieval.chunking import Chunker
 from app.retrieval.indexer import Indexer
-from app.retrieval.retriever import Retriever
 from app.services.model_gateway import ModelGateway
 from app.workflows.orchestrator import DocumentWorkflow
 from app.workflows.state_machine import WorkflowStateMachine
@@ -92,7 +93,7 @@ class Container:
     classifier: DocumentClassifier
     extractor: EntityExtractor
     chunker: Chunker
-    retriever: Retriever
+    retriever: RetrieverProtocol
     reviews: HumanReviewService
     workflow: DocumentWorkflow
     rag: RAGService
@@ -202,14 +203,7 @@ def build_container(
     )
     chunker = Chunker(settings.chunk_size, settings.chunk_overlap)
     indexer = Indexer(embedder, vector_store, metrics)
-    retriever = Retriever(
-        embedder,
-        vector_store,
-        metrics,
-        settings.retrieval_top_k,
-        settings.retrieval_min_score,
-        settings.retrieval_min_score_scoped,
-    )
+    retriever = build_retriever(settings, embedder, vector_store, metrics)
     state_machine = WorkflowStateMachine(documents, workflows, audit)
     reviews = HumanReviewService(
         reviews_repo,

@@ -41,6 +41,10 @@ dev = [
     "types-PyYAML",
     "reportlab>=4.2",
 ]
+# Optional LlamaIndex retrieval engine (DOCINTEL_RAG_ENGINE=llamaindex); not in the Docker image.
+llamaindex = [
+    "llama-index-core>=0.14,<0.15",
+]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

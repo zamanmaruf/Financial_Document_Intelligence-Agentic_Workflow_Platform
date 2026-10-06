@@ -17,7 +17,12 @@ missing, and never invent figures.
    retrieval; blocked questions are audited by hash, not raw text.
 2. **Retrieval** (`app/retrieval/retriever.py`): embed the query, run top-k cosine search with metadata
    filters (`document_id` is always applied for document-scoped questions; corpus questions may filter
-   by `document_type` and `extraction_method`), then drop results below a score threshold.
+   by `document_type` and `extraction_method`), then drop results below a score threshold. The
+   search step is pluggable behind `RetrieverProtocol` (`app/retrieval/base.py`):
+   `DOCINTEL_RAG_ENGINE=native` (default) queries the vector store directly, `llamaindex` goes
+   through LlamaIndex's `VectorStoreIndex` retriever over the same store
+   ([ADR-001 amendment](ADR-001-orchestration-framework.md)). Thresholds, filters and metrics are
+   shared, so both engines refuse in exactly the same cases.
 3. **Insufficient evidence**: no results above threshold gives a refusal, with no model call, and
    optionally an `insufficient_evidence` review case.
 4. **Context assembly**: chunks are delimited with `[chunk_id=... | page=...]` headers, capped by

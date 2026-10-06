@@ -54,3 +54,29 @@ chains or LangGraph.
 - LangChain version churn is contained to three provider files and two utilities.
 - We do not use LangChain's structured-output helpers; JSON parsing, Pydantic validation and bounded
   repair are done in `ModelGateway` so the behaviour is identical across vendors and the mock.
+
+## Amendment (2026-10-06): LlamaIndex as an optional retrieval engine
+
+LlamaIndex is now accepted in one narrow place: as an alternative **retrieval** engine
+(`DOCINTEL_RAG_ENGINE=llamaindex`, optional extra `fin-docintel[llamaindex]`). The reason given
+above still holds for the rest of the RAG pipeline, so LlamaIndex does not do prompting,
+response synthesis, citation binding, groundedness or refusal.
+
+- **What it does.** `LlamaIndexRetriever` (`app/retrieval/llamaindex_engine.py`) answers queries
+  through `VectorStoreIndex.as_retriever(...)` with `MetadataFilters`. Two adapters connect it to
+  our layers: our `EmbeddingProvider` as a LlamaIndex `BaseEmbedding`, and our `VectorStore` as a
+  `BasePydanticVectorStore`. Indexing, retention purges and stored vectors are shared with the
+  native engine.
+- **Why only retrieval.** It shows the provider and vector-store seams work with a second
+  framework, and it is a starting point for LlamaIndex retrieval features (re-rankers, hybrid or
+  recursive retrieval) without rewriting the guardrails. Thresholds, scoping and metrics stay in
+  the shared `Retriever.retrieve`, so refusal behaviour cannot drift between engines.
+- **Safety of the adapter.** Only AND-joined equality filters are accepted; any other filter
+  raises rather than being dropped, so document and workspace scoping can't silently widen.
+- **Evidence.** Parity tests (in-memory and Chroma stores) assert identical chunks, scores and
+  answers. On live Titan embeddings, both engines returned identical ranked results for all 51
+  evaluation queries (`evals/results/rag_engine_compare_2026-10-06.json`).
+- **Cost.** About 28 extra packages, so it is not in the Docker image or the public demo; CI
+  installs the extra so its tests run. Offline, LlamaIndex adds about 0.9 ms per query (1.8 ms
+  against 1.0 ms); with Titan embeddings the mean was 190 ms against 170 ms, dominated by the
+  embedding call and within the run-to-run network variation.

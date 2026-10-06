@@ -34,7 +34,7 @@ from app.observability.metrics import MetricsRecorder
 from app.persistence.repositories import AnswerRepository, DocumentRepository
 from app.providers.vectorstore.base import MetadataFilterInput
 from app.rag.groundedness import check_groundedness
-from app.retrieval.retriever import RetrievalOutcome, Retriever
+from app.retrieval.base import RetrievalOutcome, RetrieverProtocol
 from app.services.model_gateway import ModelGateway
 from app.workflows.state_machine import QUERYABLE
 
@@ -84,7 +84,7 @@ def best_snippet(chunk_text: str, answer: str) -> str:
 class RAGService:
     def __init__(
         self,
-        retriever: Retriever,
+        retriever: RetrieverProtocol,
         gateway: ModelGateway,
         documents: DocumentRepository,
         answers: AnswerRepository,

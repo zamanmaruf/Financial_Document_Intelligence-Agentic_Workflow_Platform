@@ -3,29 +3,24 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
 
-from app.domain.models import RetrievalResult
+from app.domain.models import Chunk, RetrievalResult
 from app.observability.metrics import MetricsRecorder
 from app.providers.embeddings.base import EmbeddingProvider
 from app.providers.vectorstore.base import MetadataFilter, MetadataFilterInput, VectorStore
+from app.retrieval.base import RetrievalOutcome
 
-
-@dataclass
-class RetrievalOutcome:
-    query: str
-    top_k: int
-    min_score: float
-    results: list[RetrievalResult]  # results at or above min_score
-    candidate_scores: list[float] = field(default_factory=list)  # all top-k scores
-    latency_ms: float = 0.0
-
-    @property
-    def top_score(self) -> float:
-        return self.candidate_scores[0] if self.candidate_scores else 0.0
+__all__ = ["RetrievalOutcome", "Retriever"]
 
 
 class Retriever:
+    """The native engine: embed the query and search the vector store directly.
+
+    Thresholds, scoping and metrics live here; engines only differ in ``_search``.
+    """
+
+    engine = "native"
+
     def __init__(
         self,
         embedder: EmbeddingProvider,
@@ -63,8 +58,7 @@ class Retriever:
         if workspace_id is not None:
             where["workspace_id"] = workspace_id
         started = time.perf_counter()
-        embedding = self._embedder.embed_query(query)
-        hits = self._store.query(embedding, k, where or None)
+        hits = self._search(query, k, where or None)
         latency = (time.perf_counter() - started) * 1000
         results = [
             RetrievalResult(chunk=chunk, score=round(score, 6), rank=rank)
@@ -76,7 +70,8 @@ class Retriever:
         if scores:
             self._metrics.observe("retrieval_top_score", scores[0])
         self._metrics.increment(
-            "retrieval_requests_total", labels={"empty": str(not results).lower()}
+            "retrieval_requests_total",
+            labels={"empty": str(not results).lower(), "engine": self.engine},
         )
         return RetrievalOutcome(
             query=query,
@@ -86,3 +81,8 @@ class Retriever:
             candidate_scores=scores,
             latency_ms=round(latency, 3),
         )
+
+    def _search(
+        self, query: str, k: int, where: MetadataFilter | None
+    ) -> list[tuple[Chunk, float]]:
+        return self._store.query(self._embedder.embed_query(query), k, where)

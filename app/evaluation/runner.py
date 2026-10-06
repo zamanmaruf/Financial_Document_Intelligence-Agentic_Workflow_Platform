@@ -58,8 +58,9 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 class EvaluationRunner:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, run_name: str | None = None) -> None:
         self._settings = settings
+        self._run_name = run_name
 
     def _isolated_settings(self, data_dir: Path) -> Settings:
         return self._settings.model_copy(
@@ -88,7 +89,9 @@ class EvaluationRunner:
         return EvaluationResult(
             run_id=new_id("eval"),
             config={
-                **self._settings.public_summary(),
+                # the sandbox's settings, so the report names the store actually used
+                **container.settings.public_summary(),
+                "run_name": self._run_name,
                 "llm_model": container.llm.model_name,
                 "embedding_model": container.embedder.model_name,
                 "prompts": container.prompts.active_versions(),
@@ -192,25 +195,37 @@ class EvaluationRunner:
             "ocr_available": c.text_extraction.ocr_available,
         }
 
+        retrieval, latencies = self._retrieval(c, doc_ids, failures["retrieval"])
         metrics: dict[str, dict[str, Any]] = {
             "classification": classification_metrics(
                 y_true, y_pred, [t.value for t in DocumentType]
             ),
             "extraction": extraction_metrics(field_items),
-            "retrieval": self._retrieval(c, doc_ids, failures["retrieval"]),
+            "retrieval": retrieval,
             "answers": self._answers(c, doc_ids, failures["answers"]),
             "workflow": workflow,
+            # wall-clock numbers vary between runs, so they are kept apart from quality metrics;
+            # retrieval latency includes the query embedding call
+            "timing": {
+                "retrieval_latency_ms_mean": mean(latencies),
+                "retrieval_latency_ms_p95": round(
+                    sorted(latencies)[int(0.95 * (len(latencies) - 1))], 3
+                )
+                if latencies
+                else 0.0,
+            },
         }
         return metrics, {k: v[:MAX_FAILURE_EXAMPLES] for k, v in failures.items()}
 
     def _retrieval(
         self, c: Container, doc_ids: dict[str, str], failures: list[Any]
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], list[float]]:
         queries = _read_jsonl(self._settings.evals_dir / "datasets" / "retrieval.jsonl")
         k = self._settings.retrieval_top_k
         per_query: list[dict[str, float]] = []
         doc_hits: list[float] = []
         relevances: list[float] = []
+        latencies: list[float] = []
         for q in queries:
             target = doc_ids.get(q["target_file"])
             if target is None:
@@ -232,6 +247,7 @@ class EvaluationRunner:
             total_relevant = sum(is_relevant(ch.text, ch.document_id) for ch in all_chunks)
             # min_score=-1: rank quality is measured independently of the answer threshold
             outcome = c.retriever.retrieve(q["query"], top_k=k, min_score=-1.0)
+            latencies.append(outcome.latency_ms)
             flags = [is_relevant(r.chunk.text, r.chunk.document_id) for r in outcome.results]
             m = retrieval_query_metrics(flags, total_relevant, k)
             per_query.append(m)
@@ -254,7 +270,8 @@ class EvaluationRunner:
             "mrr": mean([m["reciprocal_rank"] for m in per_query]),
             "document_hit_rate": mean(doc_hits),
             "context_relevance_lexical": mean(relevances),
-        }
+            "engine": c.retriever.engine,
+        }, latencies
 
     def _answers(
         self, c: Container, doc_ids: dict[str, str], failures: list[Any]

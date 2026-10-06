@@ -75,6 +75,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | Web console (`/ui`) | **Implemented**: static HTML/JS over the same API, tested in a browser and by e2e tests. An operator console, not a multi-user product UI |
 | AWS Bedrock chat (Claude) and Titan embeddings | **Implemented and verified live** with Claude Haiku 4.5 (cross-region inference profile) and Titan Text Embeddings V2: full evaluation, quality gate passing |
 | AWS Textract OCR, Azure OpenAI embeddings | **Implemented**, tested with stubbed clients; **not yet run against live services** (the test account had no Textract subscription; the failure surfaced as a clean provider error) |
+| LlamaIndex retrieval engine (`RAG_ENGINE=llamaindex`) | **Implemented and verified live**: parity tests on both vector stores, and identical ranked results to the native engine for all 51 evaluation queries on Titan embeddings ([comparison](#retrieval-engine-comparison-native-vs-llamaindex)). Optional extra; the deployed site uses the native engine |
 | Vision OCR with Claude on Bedrock and gpt-4.1-mini on Azure OpenAI (`OCR_PROVIDER=bedrock_vision` / `azure_vision`) | **Implemented and verified live** on three scanned samples, standalone and through the full pipeline ([OCR comparison](#ocr-comparison), [ADR-013](docs/adr/ADR-013-vision-ocr.md)). Not used on the public site: demo mode refuses it because its spend isn't covered by the daily budget |
 | LLM in the default configuration | **Mock**: a deterministic rule-based provider that implements the same interface. Labelled `is_mock: true` everywhere |
 | Embeddings in the default configuration | **Lexical hashing vectoriser**, offline and deterministic, with no semantic understanding (the deployed site uses Titan instead) |
@@ -499,6 +500,7 @@ stateDiagram-v2
 | PDF | pypdf, pypdfium2 | pure-Python text extraction; page rendering for OCR |
 | OCR | Tesseract (pytesseract) / AWS Textract / vision LLM (Claude, gpt-4.1-mini) | local, managed and multimodal-model options |
 | LLM integration | LangChain (`langchain-aws`, `langchain-openai`) as adapters only | provider breadth without framework lock-in ([ADR-001](docs/adr/ADR-001-orchestration-framework.md)) |
+| Retrieval engine | native, or LlamaIndex (`VectorStoreIndex` retriever, optional extra) over the same store | switchable with `RAG_ENGINE`; guardrails and thresholds stay shared ([ADR-001 amendment](docs/adr/ADR-001-orchestration-framework.md#amendment-2026-10-06-llamaindex-as-an-optional-retrieval-engine)) |
 | Primary LLM | Claude on AWS Bedrock (`ChatBedrockConverse`) | data stays in the AWS account and region |
 | Secondary LLM | Azure OpenAI (`AzureChatOpenAI`) | vendor diversification |
 | Embeddings | hashing (offline) / Bedrock Titan v2 / Azure `text-embedding-3-small` | offline default, managed options |
@@ -613,6 +615,7 @@ combinations fail at start-up with a clear error.
 | `LLM_PROVIDER` | `mock` | `mock` · `bedrock` · `azure_openai` |
 | `EMBEDDING_PROVIDER` | `hashing` | `hashing` · `bedrock` · `azure_openai` |
 | `VECTOR_STORE` | `chroma` | `chroma` · `memory` |
+| `RAG_ENGINE` | `native` | `native` · `llamaindex` (needs `pip install -e ".[llamaindex]"`; not in the Docker image) |
 | `OCR_PROVIDER` | `auto` | `auto` (Tesseract if installed) · `tesseract` · `textract` · `bedrock_vision` · `azure_vision` · `none` |
 | `OCR_VISION_MODEL` | unset | vision OCR model: a Bedrock model ID or Azure deployment name (defaults to `BEDROCK_MODEL_ID` / `AZURE_OPENAI_CHAT_DEPLOYMENT`; must accept images) |
 | `OCR_VISION_MAX_EDGE_PX` / `OCR_VISION_MAX_TOKENS` | `1568` / `4096` | longest side of the page image sent to the model; output budget per page |
@@ -1146,6 +1149,32 @@ with the offline hashing embeddings and once with Titan Text Embeddings V2.
   (the service hadn't been activated for it). The adapter surfaced this as a provider error, so
   the scanned document moved to `FAILED` with that error type (it can be retried) rather than
   failing silently or being processed without text.
+
+#### Retrieval engine comparison (native vs LlamaIndex)
+
+Same corpus, prompts, thresholds and quality gate; only `DOCINTEL_RAG_ENGINE` changed. Runs on
+6 October 2026, reports in
+[`evals/results/rag_engine_compare_2026-10-06.json`](evals/results/rag_engine_compare_2026-10-06.json).
+
+| Run | Engine | precision@4 | recall@4 | MRR | Answer groundedness | Retrieval latency, mean / p95 | Gate |
+|---|---|---|---|---|---|---|---|
+| Offline (mock model, hashing embeddings) | native | 0.260 | 1.00 | 0.951 | 1.00 | 1.0 / 1.0 ms | passed |
+| Offline (mock model, hashing embeddings) | LlamaIndex | 0.260 | 1.00 | 0.951 | 1.00 | 1.8 / 2.5 ms | passed |
+| Live (Claude Haiku 4.5, Titan embeddings) | native | 0.260 | 1.00 | 0.979 | 0.95 | 170 / 207 ms | failed (groundedness) |
+| Live (Claude Haiku 4.5, Titan embeddings) | LlamaIndex | 0.260 | 1.00 | 0.979 | 1.00 | 190 / 251 ms | passed |
+
+- **Retrieval is identical.** Every retrieval metric matches, and a direct check over one
+  Titan-indexed store returned the same ranked top-4 chunks with the same scores for all 51
+  evaluation queries (24 retrieval queries and 27 answer questions). That is by design: both
+  engines read the same vectors and share the thresholds and filters.
+- **The groundedness difference is the answer model, not the engine.** In the native run, Claude
+  answered "What is the balance carried forward?" with "11,817.65 GBP". The figure is right and
+  the statement is in GBP, but "GBP" is printed on page 1 and the cited passage is page 2, so the
+  deterministic check (which wants the answer's words in the cited text) marked it unsupported
+  and the gate, which compares against the mock baseline, failed. In the LlamaIndex run the same
+  question passed. Temperature 0 does not make hosted models fully repeatable.
+- **LlamaIndex costs about 1 ms per query** offline. The live latency gap is within network
+  variation; the Titan embedding call dominates both.
 
 #### OCR comparison
 

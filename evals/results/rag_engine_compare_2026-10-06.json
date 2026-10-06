@@ -1,0 +1,1000 @@
+{
+  "description": "Native vs LlamaIndex retrieval engine, same corpus, prompts and thresholds (6 October 2026).",
+  "live_retrieval_parity": {
+    "embedding_model": "amazon.titan-embed-text-v2:0",
+    "queries": 51,
+    "identical_ranked_top4_with_scores": 51,
+    "method": "both engines queried over one Titan-indexed in-memory store: the 24 retrieval queries and 27 answer questions"
+  },
+  "runs": [
+    {
+      "run_id": "eval_47b480c5a58147678225a3b13584fcc0",
+      "created_at": "2026-10-06T04:10:45.502102Z",
+      "config": {
+        "app_env": "local",
+        "llm_provider": "mock",
+        "embedding_provider": "hashing",
+        "vector_store": "memory",
+        "rag_engine": "native",
+        "ocr_provider": "none",
+        "chunk_size": 600,
+        "chunk_overlap": 80,
+        "retrieval_top_k": 4,
+        "retrieval_min_score": 0.12,
+        "retrieval_min_score_scoped": 0.03,
+        "classification_min_confidence": 0.7,
+        "extraction_min_confidence": 0.6,
+        "answer_min_confidence": 0.55,
+        "groundedness_min": 0.8,
+        "auth_enabled": false,
+        "demo_mode": false,
+        "run_name": "offline-mock-hashing-native",
+        "llm_model": "mock-deterministic-v1",
+        "embedding_model": "hashing-lexical-512",
+        "prompts": {
+          "classification.document_type": "1.1.0",
+          "extraction.financial_entities": "1.2.0",
+          "ocr.page_transcription": "1.0.0",
+          "rag.grounded_answer": "1.0.0",
+          "validation.groundedness_judge": "1.0.0"
+        },
+        "llm_judge": false
+      },
+      "metrics": {
+        "classification": {
+          "n": 27,
+          "accuracy": 1.0,
+          "macro_precision": 1.0,
+          "macro_recall": 1.0,
+          "macro_f1": 1.0,
+          "per_class": {
+            "balance_sheet": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 4
+            },
+            "bank_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "fund_summary": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "income_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "invoice": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 6
+            },
+            "unknown": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 2
+            }
+          },
+          "confusion_matrix": {
+            "balance_sheet": {
+              "balance_sheet": 4,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "bank_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 5,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "fund_summary": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 5,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "income_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 5,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "invoice": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 6,
+              "unknown": 0
+            },
+            "unknown": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 2
+            }
+          }
+        },
+        "extraction": {
+          "n_fields": 191,
+          "exact_match": 0.9946,
+          "normalized_match": 1.0,
+          "field_accuracy": 1.0,
+          "missing_field_rate": 0.0,
+          "hallucinated_field_rate": 0.0,
+          "invalid_value_rate": 0.0378,
+          "field_accuracy_by_document_type": {
+            "balance_sheet": 1.0,
+            "bank_statement": 1.0,
+            "fund_summary": 1.0,
+            "income_statement": 1.0,
+            "invoice": 1.0
+          },
+          "field_accuracy_by_field": {
+            "account_holder": 1.0,
+            "account_number_masked": 1.0,
+            "amount_due": 1.0,
+            "bank_name": 1.0,
+            "cash": 1.0,
+            "closing_balance": 1.0,
+            "company_name": 1.0,
+            "currency": 1.0,
+            "customer": 1.0,
+            "fund_name": 1.0,
+            "invoice_date": 1.0,
+            "invoice_number": 1.0,
+            "management_fee_pct": 1.0,
+            "nav_per_share": 1.0,
+            "net_asset_value": 1.0,
+            "net_income": 1.0,
+            "opening_balance": 1.0,
+            "operating_expenses": 1.0,
+            "operating_income": 1.0,
+            "reporting_period": 1.0,
+            "revenue": 1.0,
+            "shareholders_equity": 1.0,
+            "statement_period": 1.0,
+            "subtotal": 1.0,
+            "tax": 1.0,
+            "total_assets": 1.0,
+            "total_credits": 1.0,
+            "total_debits": 1.0,
+            "total_liabilities": 1.0,
+            "vendor": 1.0,
+            "ytd_return_pct": 1.0
+          }
+        },
+        "retrieval": {
+          "n_queries": 24,
+          "k": 4,
+          "precision_at_k": 0.2604,
+          "recall_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mrr": 0.9514,
+          "document_hit_rate": 1.0,
+          "context_relevance_lexical": 0.5698,
+          "engine": "native"
+        },
+        "answers": {
+          "n_cases": 27,
+          "completeness": 0.75,
+          "groundedness": 1.0,
+          "citation_correctness": 1.0,
+          "answer_relevance_lexical": 0.902,
+          "unsupported_statement_rate": 0.0,
+          "schema_validity": 1.0,
+          "correct_refusal_rate": 1.0,
+          "false_refusal_rate": 0.15
+        },
+        "workflow": {
+          "n_documents": 32,
+          "routing_accuracy": 1.0,
+          "review_precision": 1.0,
+          "review_recall": 1.0,
+          "ocr_available": false
+        },
+        "failures": {
+          "classification": [],
+          "extraction": [],
+          "retrieval": [],
+          "answers": [
+            {
+              "id": "a04",
+              "issue": "refused",
+              "reason": "insufficient evidence"
+            },
+            {
+              "id": "a11",
+              "issue": "incomplete",
+              "answer": "Fund name: Summit Emerging Markets Fund",
+              "expected": [
+                "-3.2%"
+              ]
+            },
+            {
+              "id": "a12",
+              "issue": "refused",
+              "reason": "insufficient evidence"
+            },
+            {
+              "id": "a13",
+              "issue": "incomplete",
+              "answer": "FY2025 FY2024",
+              "expected": [
+                "15,200,000"
+              ]
+            },
+            {
+              "id": "a20",
+              "issue": "refused",
+              "reason": "insufficient evidence"
+            }
+          ],
+          "workflow": []
+        },
+        "timing": {
+          "retrieval_latency_ms_mean": 0.951,
+          "retrieval_latency_ms_p95": 0.958
+        }
+      },
+      "gate_passed": true,
+      "gate_failures": [],
+      "duration_s": 0.43,
+      "is_mock": true
+    },
+    {
+      "run_id": "eval_7b77727dc2054461becd5ce9bf64965b",
+      "created_at": "2026-10-06T04:10:46.732059Z",
+      "config": {
+        "app_env": "local",
+        "llm_provider": "mock",
+        "embedding_provider": "hashing",
+        "vector_store": "memory",
+        "rag_engine": "llamaindex",
+        "ocr_provider": "none",
+        "chunk_size": 600,
+        "chunk_overlap": 80,
+        "retrieval_top_k": 4,
+        "retrieval_min_score": 0.12,
+        "retrieval_min_score_scoped": 0.03,
+        "classification_min_confidence": 0.7,
+        "extraction_min_confidence": 0.6,
+        "answer_min_confidence": 0.55,
+        "groundedness_min": 0.8,
+        "auth_enabled": false,
+        "demo_mode": false,
+        "run_name": "offline-mock-hashing-llamaindex",
+        "llm_model": "mock-deterministic-v1",
+        "embedding_model": "hashing-lexical-512",
+        "prompts": {
+          "classification.document_type": "1.1.0",
+          "extraction.financial_entities": "1.2.0",
+          "ocr.page_transcription": "1.0.0",
+          "rag.grounded_answer": "1.0.0",
+          "validation.groundedness_judge": "1.0.0"
+        },
+        "llm_judge": false
+      },
+      "metrics": {
+        "classification": {
+          "n": 27,
+          "accuracy": 1.0,
+          "macro_precision": 1.0,
+          "macro_recall": 1.0,
+          "macro_f1": 1.0,
+          "per_class": {
+            "balance_sheet": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 4
+            },
+            "bank_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "fund_summary": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "income_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "invoice": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 6
+            },
+            "unknown": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 2
+            }
+          },
+          "confusion_matrix": {
+            "balance_sheet": {
+              "balance_sheet": 4,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "bank_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 5,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "fund_summary": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 5,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "income_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 5,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "invoice": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 6,
+              "unknown": 0
+            },
+            "unknown": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 2
+            }
+          }
+        },
+        "extraction": {
+          "n_fields": 191,
+          "exact_match": 0.9946,
+          "normalized_match": 1.0,
+          "field_accuracy": 1.0,
+          "missing_field_rate": 0.0,
+          "hallucinated_field_rate": 0.0,
+          "invalid_value_rate": 0.0378,
+          "field_accuracy_by_document_type": {
+            "balance_sheet": 1.0,
+            "bank_statement": 1.0,
+            "fund_summary": 1.0,
+            "income_statement": 1.0,
+            "invoice": 1.0
+          },
+          "field_accuracy_by_field": {
+            "account_holder": 1.0,
+            "account_number_masked": 1.0,
+            "amount_due": 1.0,
+            "bank_name": 1.0,
+            "cash": 1.0,
+            "closing_balance": 1.0,
+            "company_name": 1.0,
+            "currency": 1.0,
+            "customer": 1.0,
+            "fund_name": 1.0,
+            "invoice_date": 1.0,
+            "invoice_number": 1.0,
+            "management_fee_pct": 1.0,
+            "nav_per_share": 1.0,
+            "net_asset_value": 1.0,
+            "net_income": 1.0,
+            "opening_balance": 1.0,
+            "operating_expenses": 1.0,
+            "operating_income": 1.0,
+            "reporting_period": 1.0,
+            "revenue": 1.0,
+            "shareholders_equity": 1.0,
+            "statement_period": 1.0,
+            "subtotal": 1.0,
+            "tax": 1.0,
+            "total_assets": 1.0,
+            "total_credits": 1.0,
+            "total_debits": 1.0,
+            "total_liabilities": 1.0,
+            "vendor": 1.0,
+            "ytd_return_pct": 1.0
+          }
+        },
+        "retrieval": {
+          "n_queries": 24,
+          "k": 4,
+          "precision_at_k": 0.2604,
+          "recall_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mrr": 0.9514,
+          "document_hit_rate": 1.0,
+          "context_relevance_lexical": 0.5698,
+          "engine": "llamaindex"
+        },
+        "answers": {
+          "n_cases": 27,
+          "completeness": 0.75,
+          "groundedness": 1.0,
+          "citation_correctness": 1.0,
+          "answer_relevance_lexical": 0.902,
+          "unsupported_statement_rate": 0.0,
+          "schema_validity": 1.0,
+          "correct_refusal_rate": 1.0,
+          "false_refusal_rate": 0.15
+        },
+        "workflow": {
+          "n_documents": 32,
+          "routing_accuracy": 1.0,
+          "review_precision": 1.0,
+          "review_recall": 1.0,
+          "ocr_available": false
+        },
+        "failures": {
+          "classification": [],
+          "extraction": [],
+          "retrieval": [],
+          "answers": [
+            {
+              "id": "a04",
+              "issue": "refused",
+              "reason": "insufficient evidence"
+            },
+            {
+              "id": "a11",
+              "issue": "incomplete",
+              "answer": "Fund name: Summit Emerging Markets Fund",
+              "expected": [
+                "-3.2%"
+              ]
+            },
+            {
+              "id": "a12",
+              "issue": "refused",
+              "reason": "insufficient evidence"
+            },
+            {
+              "id": "a13",
+              "issue": "incomplete",
+              "answer": "FY2025 FY2024",
+              "expected": [
+                "15,200,000"
+              ]
+            },
+            {
+              "id": "a20",
+              "issue": "refused",
+              "reason": "insufficient evidence"
+            }
+          ],
+          "workflow": []
+        },
+        "timing": {
+          "retrieval_latency_ms_mean": 1.8262,
+          "retrieval_latency_ms_p95": 2.512
+        }
+      },
+      "gate_passed": true,
+      "gate_failures": [],
+      "duration_s": 0.822,
+      "is_mock": true
+    },
+    {
+      "run_id": "eval_3f0bebcbc1204d37b5589f290a1cd066",
+      "created_at": "2026-10-06T04:13:24.545811Z",
+      "config": {
+        "app_env": "local",
+        "llm_provider": "bedrock",
+        "embedding_provider": "bedrock",
+        "vector_store": "memory",
+        "rag_engine": "native",
+        "ocr_provider": "none",
+        "chunk_size": 600,
+        "chunk_overlap": 80,
+        "retrieval_top_k": 4,
+        "retrieval_min_score": 0.12,
+        "retrieval_min_score_scoped": 0.03,
+        "classification_min_confidence": 0.7,
+        "extraction_min_confidence": 0.6,
+        "answer_min_confidence": 0.55,
+        "groundedness_min": 0.8,
+        "auth_enabled": false,
+        "demo_mode": false,
+        "run_name": "live-bedrock-titan-native",
+        "llm_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "embedding_model": "amazon.titan-embed-text-v2:0",
+        "prompts": {
+          "classification.document_type": "1.1.0",
+          "extraction.financial_entities": "1.2.0",
+          "ocr.page_transcription": "1.0.0",
+          "rag.grounded_answer": "1.0.0",
+          "validation.groundedness_judge": "1.0.0"
+        },
+        "llm_judge": false
+      },
+      "metrics": {
+        "classification": {
+          "n": 27,
+          "accuracy": 1.0,
+          "macro_precision": 1.0,
+          "macro_recall": 1.0,
+          "macro_f1": 1.0,
+          "per_class": {
+            "balance_sheet": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 4
+            },
+            "bank_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "fund_summary": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "income_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "invoice": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 6
+            },
+            "unknown": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 2
+            }
+          },
+          "confusion_matrix": {
+            "balance_sheet": {
+              "balance_sheet": 4,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "bank_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 5,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "fund_summary": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 5,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "income_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 5,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "invoice": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 6,
+              "unknown": 0
+            },
+            "unknown": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 2
+            }
+          }
+        },
+        "extraction": {
+          "n_fields": 191,
+          "exact_match": 0.9838,
+          "normalized_match": 0.9946,
+          "field_accuracy": 0.9948,
+          "missing_field_rate": 0.0,
+          "hallucinated_field_rate": 0.0,
+          "invalid_value_rate": 0.0378,
+          "field_accuracy_by_document_type": {
+            "balance_sheet": 1.0,
+            "bank_statement": 1.0,
+            "fund_summary": 1.0,
+            "income_statement": 0.9714,
+            "invoice": 1.0
+          },
+          "field_accuracy_by_field": {
+            "account_holder": 1.0,
+            "account_number_masked": 1.0,
+            "amount_due": 1.0,
+            "bank_name": 1.0,
+            "cash": 1.0,
+            "closing_balance": 1.0,
+            "company_name": 1.0,
+            "currency": 1.0,
+            "customer": 1.0,
+            "fund_name": 1.0,
+            "invoice_date": 1.0,
+            "invoice_number": 1.0,
+            "management_fee_pct": 1.0,
+            "nav_per_share": 1.0,
+            "net_asset_value": 1.0,
+            "net_income": 1.0,
+            "opening_balance": 1.0,
+            "operating_expenses": 1.0,
+            "operating_income": 1.0,
+            "reporting_period": 0.9286,
+            "revenue": 1.0,
+            "shareholders_equity": 1.0,
+            "statement_period": 1.0,
+            "subtotal": 1.0,
+            "tax": 1.0,
+            "total_assets": 1.0,
+            "total_credits": 1.0,
+            "total_debits": 1.0,
+            "total_liabilities": 1.0,
+            "vendor": 1.0,
+            "ytd_return_pct": 1.0
+          }
+        },
+        "retrieval": {
+          "n_queries": 24,
+          "k": 4,
+          "precision_at_k": 0.2604,
+          "recall_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mrr": 0.9792,
+          "document_hit_rate": 1.0,
+          "context_relevance_lexical": 0.5283,
+          "engine": "native"
+        },
+        "answers": {
+          "n_cases": 27,
+          "completeness": 1.0,
+          "groundedness": 0.95,
+          "citation_correctness": 1.0,
+          "answer_relevance_lexical": 0.7333,
+          "unsupported_statement_rate": 0.05,
+          "schema_validity": 1.0,
+          "correct_refusal_rate": 1.0,
+          "false_refusal_rate": 0.0
+        },
+        "workflow": {
+          "n_documents": 32,
+          "routing_accuracy": 1.0,
+          "review_precision": 1.0,
+          "review_recall": 1.0,
+          "ocr_available": false
+        },
+        "failures": {
+          "classification": [],
+          "extraction": [
+            {
+              "file": "income_statement_04_contoso_comparative.pdf",
+              "document_type": "income_statement",
+              "field": "reporting_period",
+              "expected": "30 June 2025",
+              "predicted": "FY2025",
+              "validation_status": "valid"
+            }
+          ],
+          "retrieval": [],
+          "answers": [
+            {
+              "id": "a18",
+              "issue": "unsupported_sentences",
+              "groundedness": 0.0,
+              "sentences": [
+                "11,817.65 GBP"
+              ]
+            }
+          ],
+          "workflow": []
+        },
+        "timing": {
+          "retrieval_latency_ms_mean": 169.5687,
+          "retrieval_latency_ms_p95": 206.932
+        }
+      },
+      "gate_passed": false,
+      "gate_failures": [
+        "answers.groundedness: regressed 0.9500 vs baseline 1.0000 (tolerance 0.03)"
+      ],
+      "duration_s": 150.488,
+      "is_mock": false
+    },
+    {
+      "run_id": "eval_3bbed8f6b5e94f30a1131ba767fb9b73",
+      "created_at": "2026-10-06T04:15:46.202805Z",
+      "config": {
+        "app_env": "local",
+        "llm_provider": "bedrock",
+        "embedding_provider": "bedrock",
+        "vector_store": "memory",
+        "rag_engine": "llamaindex",
+        "ocr_provider": "none",
+        "chunk_size": 600,
+        "chunk_overlap": 80,
+        "retrieval_top_k": 4,
+        "retrieval_min_score": 0.12,
+        "retrieval_min_score_scoped": 0.03,
+        "classification_min_confidence": 0.7,
+        "extraction_min_confidence": 0.6,
+        "answer_min_confidence": 0.55,
+        "groundedness_min": 0.8,
+        "auth_enabled": false,
+        "demo_mode": false,
+        "run_name": "live-bedrock-titan-llamaindex",
+        "llm_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "embedding_model": "amazon.titan-embed-text-v2:0",
+        "prompts": {
+          "classification.document_type": "1.1.0",
+          "extraction.financial_entities": "1.2.0",
+          "ocr.page_transcription": "1.0.0",
+          "rag.grounded_answer": "1.0.0",
+          "validation.groundedness_judge": "1.0.0"
+        },
+        "llm_judge": false
+      },
+      "metrics": {
+        "classification": {
+          "n": 27,
+          "accuracy": 1.0,
+          "macro_precision": 1.0,
+          "macro_recall": 1.0,
+          "macro_f1": 1.0,
+          "per_class": {
+            "balance_sheet": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 4
+            },
+            "bank_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "fund_summary": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "income_statement": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 5
+            },
+            "invoice": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 6
+            },
+            "unknown": {
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0,
+              "support": 2
+            }
+          },
+          "confusion_matrix": {
+            "balance_sheet": {
+              "balance_sheet": 4,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "bank_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 5,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "fund_summary": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 5,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "income_statement": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 5,
+              "invoice": 0,
+              "unknown": 0
+            },
+            "invoice": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 6,
+              "unknown": 0
+            },
+            "unknown": {
+              "balance_sheet": 0,
+              "bank_statement": 0,
+              "fund_summary": 0,
+              "income_statement": 0,
+              "invoice": 0,
+              "unknown": 2
+            }
+          }
+        },
+        "extraction": {
+          "n_fields": 191,
+          "exact_match": 0.9838,
+          "normalized_match": 0.9946,
+          "field_accuracy": 0.9948,
+          "missing_field_rate": 0.0,
+          "hallucinated_field_rate": 0.0,
+          "invalid_value_rate": 0.0378,
+          "field_accuracy_by_document_type": {
+            "balance_sheet": 1.0,
+            "bank_statement": 1.0,
+            "fund_summary": 1.0,
+            "income_statement": 0.9714,
+            "invoice": 1.0
+          },
+          "field_accuracy_by_field": {
+            "account_holder": 1.0,
+            "account_number_masked": 1.0,
+            "amount_due": 1.0,
+            "bank_name": 1.0,
+            "cash": 1.0,
+            "closing_balance": 1.0,
+            "company_name": 1.0,
+            "currency": 1.0,
+            "customer": 1.0,
+            "fund_name": 1.0,
+            "invoice_date": 1.0,
+            "invoice_number": 1.0,
+            "management_fee_pct": 1.0,
+            "nav_per_share": 1.0,
+            "net_asset_value": 1.0,
+            "net_income": 1.0,
+            "opening_balance": 1.0,
+            "operating_expenses": 1.0,
+            "operating_income": 1.0,
+            "reporting_period": 0.9286,
+            "revenue": 1.0,
+            "shareholders_equity": 1.0,
+            "statement_period": 1.0,
+            "subtotal": 1.0,
+            "tax": 1.0,
+            "total_assets": 1.0,
+            "total_credits": 1.0,
+            "total_debits": 1.0,
+            "total_liabilities": 1.0,
+            "vendor": 1.0,
+            "ytd_return_pct": 1.0
+          }
+        },
+        "retrieval": {
+          "n_queries": 24,
+          "k": 4,
+          "precision_at_k": 0.2604,
+          "recall_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mrr": 0.9792,
+          "document_hit_rate": 1.0,
+          "context_relevance_lexical": 0.5283,
+          "engine": "llamaindex"
+        },
+        "answers": {
+          "n_cases": 27,
+          "completeness": 1.0,
+          "groundedness": 1.0,
+          "citation_correctness": 1.0,
+          "answer_relevance_lexical": 0.7333,
+          "unsupported_statement_rate": 0.0,
+          "schema_validity": 1.0,
+          "correct_refusal_rate": 1.0,
+          "false_refusal_rate": 0.0
+        },
+        "workflow": {
+          "n_documents": 32,
+          "routing_accuracy": 1.0,
+          "review_precision": 1.0,
+          "review_recall": 1.0,
+          "ocr_available": false
+        },
+        "failures": {
+          "classification": [],
+          "extraction": [
+            {
+              "file": "income_statement_04_contoso_comparative.pdf",
+              "document_type": "income_statement",
+              "field": "reporting_period",
+              "expected": "30 June 2025",
+              "predicted": "FY2025",
+              "validation_status": "valid"
+            }
+          ],
+          "retrieval": [],
+          "answers": [],
+          "workflow": []
+        },
+        "timing": {
+          "retrieval_latency_ms_mean": 190.2636,
+          "retrieval_latency_ms_p95": 251.323
+        }
+      },
+      "gate_passed": true,
+      "gate_failures": [],
+      "duration_s": 141.061,
+      "is_mock": false
+    }
+  ]
+}

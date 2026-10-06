@@ -9,9 +9,9 @@ IMAGE ?= fin-docintel:local
 # `uv` is used when available; falls back to the standard venv + pip toolchain.
 install:
 	@if command -v uv >/dev/null 2>&1; then \
-		uv venv --python 3.12 $(VENV) && uv pip install --python $(PY) -e ".[dev]"; \
+		uv venv --python 3.12 $(VENV) && uv pip install --python $(PY) -e ".[dev,llamaindex]"; \
 	else \
-		python3.12 -m venv $(VENV) && $(PY) -m pip install --upgrade pip && $(PY) -m pip install -e ".[dev]"; \
+		python3.12 -m venv $(VENV) && $(PY) -m pip install --upgrade pip && $(PY) -m pip install -e ".[dev,llamaindex]"; \
 	fi
 
 dev:

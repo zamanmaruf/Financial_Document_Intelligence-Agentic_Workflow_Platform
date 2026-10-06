@@ -9,13 +9,14 @@ from app.core.config import (
     LLMProviderName,
     MetricsBackendName,
     OCRProviderName,
+    RAGEngineName,
     Settings,
     VectorStoreName,
 )
 from app.core.errors import ProviderConfigurationError
 from app.core.registry import DocumentTypeRegistry
 from app.ingestion.extractors import DocumentTextExtractor
-from app.observability.metrics import InMemoryMetrics, OpenTelemetryMetrics
+from app.observability.metrics import InMemoryMetrics, MetricsRecorder, OpenTelemetryMetrics
 from app.providers.embeddings.base import EmbeddingProvider
 from app.providers.embeddings.hashing import HashingEmbeddingProvider
 from app.providers.embeddings.langchain_embeddings import (
@@ -32,6 +33,8 @@ from app.providers.ocr.vision_llm import VisionLLMOCRExtractor
 from app.providers.vectorstore.base import VectorStore
 from app.providers.vectorstore.chroma import ChromaVectorStore
 from app.providers.vectorstore.memory import InMemoryVectorStore
+from app.retrieval.base import RetrieverProtocol
+from app.retrieval.retriever import Retriever
 
 if TYPE_CHECKING:
     from app.services.model_gateway import ModelGateway
@@ -95,6 +98,34 @@ def build_vector_store(settings: Settings, embedding_model: str) -> VectorStore:
             return ChromaVectorStore(settings.data_dir / "chroma", embedding_model)
         case VectorStoreName.MEMORY:
             return InMemoryVectorStore()
+
+
+def build_retriever(
+    settings: Settings,
+    embedder: EmbeddingProvider,
+    store: VectorStore,
+    metrics: MetricsRecorder,
+) -> RetrieverProtocol:
+    args = (
+        embedder,
+        store,
+        metrics,
+        settings.retrieval_top_k,
+        settings.retrieval_min_score,
+        settings.retrieval_min_score_scoped,
+    )
+    match settings.rag_engine:
+        case RAGEngineName.NATIVE:
+            return Retriever(*args)
+        case RAGEngineName.LLAMAINDEX:
+            try:
+                from app.retrieval.llamaindex_engine import LlamaIndexRetriever
+            except ImportError as exc:
+                raise ProviderConfigurationError(
+                    "DOCINTEL_RAG_ENGINE=llamaindex needs the optional extra: "
+                    "pip install 'fin-docintel[llamaindex]'"
+                ) from exc
+            return LlamaIndexRetriever(*args)
 
 
 def build_vision_llm_provider(settings: Settings) -> LLMProvider:

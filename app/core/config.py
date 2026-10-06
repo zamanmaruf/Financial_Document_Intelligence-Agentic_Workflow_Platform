@@ -35,6 +35,11 @@ class VectorStoreName(StrEnum):
     MEMORY = "memory"
 
 
+class RAGEngineName(StrEnum):
+    NATIVE = "native"
+    LLAMAINDEX = "llamaindex"  # needs the optional extra: pip install 'fin-docintel[llamaindex]'
+
+
 class OCRProviderName(StrEnum):
     AUTO = "auto"  # tesseract if the binary is installed, otherwise none
     TESSERACT = "tesseract"
@@ -94,6 +99,7 @@ class Settings(BaseSettings):
     llm_provider: LLMProviderName = LLMProviderName.MOCK
     embedding_provider: EmbeddingProviderName = EmbeddingProviderName.HASHING
     vector_store: VectorStoreName = VectorStoreName.CHROMA
+    rag_engine: RAGEngineName = RAGEngineName.NATIVE
     ocr_provider: OCRProviderName = OCRProviderName.AUTO
     metrics_backend: MetricsBackendName = MetricsBackendName.MEMORY
 
@@ -262,6 +268,7 @@ class Settings(BaseSettings):
             "llm_provider": self.llm_provider.value,
             "embedding_provider": self.embedding_provider.value,
             "vector_store": self.vector_store.value,
+            "rag_engine": self.rag_engine.value,
             "ocr_provider": self.ocr_provider.value,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
