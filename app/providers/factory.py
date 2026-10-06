@@ -66,7 +66,11 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
         case EmbeddingProviderName.HASHING:
             return HashingEmbeddingProvider(settings.hashing_embedding_dim)
         case EmbeddingProviderName.BEDROCK:
-            return bedrock_embeddings(settings.bedrock_embedding_model_id, settings.aws_region)
+            return bedrock_embeddings(
+                settings.bedrock_embedding_model_id,
+                settings.aws_region,
+                timeout_s=settings.embedding_timeout_s,
+            )
         case EmbeddingProviderName.AZURE_OPENAI:
             key = settings.azure_openai_api_key
             return azure_openai_embeddings(
@@ -74,6 +78,7 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
                 key.get_secret_value() if key else None,
                 settings.azure_openai_api_version,
                 settings.azure_openai_embedding_deployment,
+                timeout_s=settings.embedding_timeout_s,
             )
 
 

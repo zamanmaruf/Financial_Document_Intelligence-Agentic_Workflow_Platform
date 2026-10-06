@@ -47,18 +47,32 @@ class LangChainEmbeddingProvider:
             ) from exc
 
 
-def bedrock_embeddings(model_id: str, region: str) -> LangChainEmbeddingProvider:
+def bedrock_embeddings(
+    model_id: str, region: str, timeout_s: float = 30.0, max_attempts: int = 3
+) -> LangChainEmbeddingProvider:
+    from botocore.config import Config
     from langchain_aws import BedrockEmbeddings
 
+    # Embedding calls bypass the model gateway's retry loop, so botocore bounds them instead.
+    config = Config(
+        read_timeout=timeout_s,
+        connect_timeout=min(10.0, timeout_s),
+        retries={"total_max_attempts": max_attempts, "mode": "standard"},
+    )
     return LangChainEmbeddingProvider(
-        BedrockEmbeddings(model_id=model_id, region_name=region),
+        BedrockEmbeddings(model_id=model_id, region_name=region, config=config),
         provider_name="bedrock",
         model_name=model_id,
     )
 
 
 def azure_openai_embeddings(
-    endpoint: str | None, api_key: str | None, api_version: str, deployment: str | None
+    endpoint: str | None,
+    api_key: str | None,
+    api_version: str,
+    deployment: str | None,
+    timeout_s: float = 30.0,
+    max_retries: int = 2,
 ) -> LangChainEmbeddingProvider:
     if not endpoint or not api_key or not deployment:
         raise ProviderConfigurationError(
@@ -73,7 +87,8 @@ def azure_openai_embeddings(
             openai_api_key=SecretStr(api_key),
             openai_api_version=api_version,
             deployment=deployment,
-            max_retries=0,
+            request_timeout=timeout_s,
+            max_retries=max_retries,
         ),
         provider_name="azure_openai",
         model_name=deployment,

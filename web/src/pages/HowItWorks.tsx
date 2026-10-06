@@ -248,8 +248,8 @@ function DataPanel() {
     },
     {
       icon: <Database aria-hidden />,
-      title: "Search runs on the server",
-      body: "Passages for answering questions are indexed on the demo server itself; no text is sent to a separate search or embedding service.",
+      title: "Semantic search with Amazon Titan",
+      body: "To find the passages that answer a question, the public site turns each passage into a search vector with Amazon Titan embeddings on AWS Bedrock, and keeps the index on the demo server. Copies running fully offline use a simpler word-matching index instead.",
     },
   ];
   const data: { icon: ReactNode; title: string; body: string }[] = [

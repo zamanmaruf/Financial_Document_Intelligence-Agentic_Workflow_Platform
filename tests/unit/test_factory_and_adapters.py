@@ -50,6 +50,19 @@ class TestEmbeddingAdapters:
         with pytest.raises(ProviderConfigurationError):
             azure_openai_embeddings(None, None, "v", None)
 
+    def test_cloud_embedding_clients_are_bounded(self) -> None:
+        # Embedding calls bypass the gateway's retry loop, so the clients carry their own limits.
+        bedrock = bedrock_embeddings("amazon.titan-embed-text-v2:0", "us-east-1", timeout_s=12.0)
+        config = bedrock._embeddings.config  # type: ignore[attr-defined]
+        assert config.read_timeout == 12.0
+        assert config.connect_timeout == 10.0
+        assert config.retries == {"total_max_attempts": 3, "mode": "standard"}
+        azure = azure_openai_embeddings(
+            "https://x.openai.azure.com", "k", "2024-06-01", "emb", timeout_s=7.0
+        )
+        assert azure._embeddings.request_timeout == 7.0  # type: ignore[attr-defined]
+        assert azure._embeddings.max_retries == 2  # type: ignore[attr-defined]
+
 
 class TestFactory:
     def test_mock_defaults(self, tmp_path: Path) -> None:

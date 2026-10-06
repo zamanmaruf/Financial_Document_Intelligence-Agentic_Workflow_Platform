@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     llm_json_repair_attempts: int = 1
 
     hashing_embedding_dim: int = 512
+    embedding_timeout_s: float = Field(default=30.0, gt=0.0)
 
     # AWS Bedrock
     aws_region: str = "us-east-1"

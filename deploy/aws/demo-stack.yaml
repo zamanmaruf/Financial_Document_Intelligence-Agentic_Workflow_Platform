@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   DocIntel public guided demo: one Fargate task (FastAPI API + built React site) behind an ALB
-  and CloudFront, calling Claude on Bedrock through an IAM task role. Deploy with
+  and CloudFront, calling Claude and Titan embeddings on Bedrock through an IAM task role. Deploy with
   deploy/aws/deploy.sh; see deploy/aws/RUNBOOK.md.
 
 Parameters:
@@ -24,6 +24,10 @@ Parameters:
     Type: String
     Default: anthropic.claude-haiku-4-5-20251001-v1:0
     Description: Underlying foundation model id (the inference profile routes to it).
+  BedrockEmbeddingModelId:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Embedding model used to index and search document passages (invoked in-region).
   DailyLiveBudgetUsd:
     Type: String
     Default: "2.0"
@@ -171,7 +175,7 @@ Resources:
                 Action: ssm:GetParameters
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DemoSecretParameterName}"
 
-  # The application's only AWS permission: invoke the one configured Claude model.
+  # The application's only AWS permission: invoke the configured Claude and embedding models.
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -195,6 +199,7 @@ Resources:
                   - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${BedrockModelId}"
                   # a cross-region profile may route to the model in any of its regions
                   - !Sub "arn:aws:bedrock:*::foundation-model/${BedrockFoundationModelId}"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${BedrockEmbeddingModelId}"
 
   # ---------------------------------------------------------------- compute
   LogGroup:
@@ -236,7 +241,8 @@ Resources:
             - { Name: DOCINTEL_LLM_PROVIDER, Value: bedrock }
             - { Name: DOCINTEL_BEDROCK_MODEL_ID, Value: !Ref BedrockModelId }
             - { Name: DOCINTEL_AWS_REGION, Value: !Ref "AWS::Region" }
-            - { Name: DOCINTEL_EMBEDDING_PROVIDER, Value: hashing }
+            - { Name: DOCINTEL_EMBEDDING_PROVIDER, Value: bedrock }
+            - { Name: DOCINTEL_BEDROCK_EMBEDDING_MODEL_ID, Value: !Ref BedrockEmbeddingModelId }
             - { Name: DOCINTEL_VECTOR_STORE, Value: chroma }
             - { Name: DOCINTEL_OCR_PROVIDER, Value: auto }
             - { Name: DOCINTEL_LOG_JSON, Value: "true" }

@@ -51,11 +51,12 @@ test("security and caching headers are set", async ({ request }) => {
   expect(assetRes.headers()["cache-control"]).toContain("immutable");
 });
 
-test("the deployment runs real models, not the offline engine", async ({ request }) => {
+test("the deployment runs real models and semantic search, not the offline engine", async ({ request }) => {
   const health = await (await request.get("/health")).json();
   expect(health.status).toBe("ok");
   expect(health.mock_mode).toBe(false);
   expect(health.providers.llm).toMatch(/^bedrock:/);
+  expect(health.providers.embeddings).toMatch(/^bedrock:amazon\.titan-embed/);
   expect(health.checks).toEqual({ database: true, vector_store: true });
 
   const status = await (await request.get("/demo/status")).json();
