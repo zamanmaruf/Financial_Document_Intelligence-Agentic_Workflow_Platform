@@ -4,10 +4,10 @@ This deploys the guided demo site and API as **one container on ECS Fargate** be
 Application Load Balancer and CloudFront. The container calls Claude on Amazon Bedrock using an
 IAM task role, so no AWS keys are stored anywhere in the deployment.
 
-> Status: deployed and in use. Deploys so far were run by hand with an admin profile
-> (`make deploy`). The GitHub Actions deploy workflow (see
-> [Continuous deployment](#continuous-deployment)) is ready on the AWS side but has not run yet:
-> it needs the GitHub `production` environment described below.
+> Status: deployed and in use. The first deploys were run by hand with an admin profile; since
+> 6 October 2026, every push to `main` that passes CI is deployed by GitHub Actions after a
+> reviewer approves it (see [Continuous deployment](#continuous-deployment)). `make deploy` still
+> works from a laptop.
 
 ## What gets created
 
@@ -111,7 +111,7 @@ Logs: `aws logs tail /ecs/docintel-demo --follow`.
 
 Deploys never overlap (one concurrency group, never cancelled mid-deploy).
 
-**One-off setup** (the AWS stack exists for this account; the GitHub environment does not yet):
+**One-off setup** (already done for this account):
 
 ```bash
 AWS_PROFILE=<admin> make deploy-cd-bootstrap   # deploy/aws/github-oidc.yaml, stack docintel-github-deploy

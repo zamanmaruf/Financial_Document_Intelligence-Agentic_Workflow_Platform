@@ -55,8 +55,7 @@ DOCINTEL_AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o
   offline. **The Azure OpenAI adapter has since been verified live** (`gpt-4.1-mini`): the first
   real-provider run was the evaluation suite, as intended, and it surfaced four issues that the
   mock could not (see the README's "Real-model results"). The Bedrock adapter (Claude Haiku 4.5
-  and Titan embeddings) has also been verified live, and Claude serves the public demo (Titan
-  is configured for it from the next deploy).
+  and Titan embeddings) has also been verified live, and both serve the public demo.
 - `LLMRequest.images` lets the same adapters carry page images (OpenAI-style `image_url` blocks
   with base64 data URLs, which `ChatBedrockConverse` converts to Converse image blocks). Vision
   OCR ([ADR-013](ADR-013-vision-ocr.md)) uses this through its own `ModelGateway`, so image

@@ -983,11 +983,16 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
   OIDC token (no stored AWS keys; the trust policy pins the repository and the environment). That
   role can only create change sets on the demo stack that name the CloudFormation service role,
   which holds the resource permissions. It builds the ARM64 image natively, deploys, and runs
-  `make smoke-live`. Honest status: the AWS roles exist and the workflow passes actionlint, but it
-  hasn't run yet because the GitHub environment hasn't been created; deploys so far were by hand
-  with `make deploy`. Production CD would add a staging environment with a real-provider
+  `make smoke-live`. In use since 6 October 2026: about 8 minutes from approval to passing smoke
+  tests. Production CD would add a staging environment with a real-provider
   evaluation, image signing with an SBOM and vulnerability scan, blue/green or canary rollout,
   and config (model IDs, thresholds) promoted as versioned artefacts.
+- **Follow-up:** Did it work first time?
+- **Follow-up answer:** No, and both failures were safe. First, AWS refused the sign-in: GitHub's
+  OIDC subject now includes the owner and repository IDs, which CloudTrail showed in the denied
+  call, so the trust policy pins them (stricter than the name alone). Second, the stack update
+  rolled back: a new alert email forces CloudFormation to replace the budget, which collided with
+  its fixed name. The live site kept running on the old version throughout.
 - **Follow-up:** How do you roll back a bad prompt quickly?
 - **Follow-up answer:** Prompts ship with the image, so roll back the image; or keep prompt
   selection in config to switch versions without a rebuild.

@@ -26,8 +26,8 @@ normalised match 0.995, retrieval MRR 0.979). Textract, Azure embeddings and Azu
 reasoning-model mode are implemented and tested with stubs, but have not been run against live
 endpoints. Vision OCR (Claude on Bedrock, gpt-4.1-mini on Azure), a switchable LlamaIndex
 retrieval engine and a cross-provider LLM judge were since added and run live; an Azure OpenAI
-fine-tuning experiment and a GitHub Actions deploy pipeline are built but have not run yet
-(section 21).
+fine-tuning experiment is built but its training job has not run yet; a GitHub Actions deploy
+pipeline with OIDC is in use and the deployed site now searches with Titan (section 21).
 
 A **public guided demo site** was added afterwards: a React landing page, an eight-step guided
 tour and a playground for non-technical visitors. It's served by the same container in an opt-in
@@ -186,9 +186,9 @@ locally. The infra job also runs `actionlint` on the workflows.
 **Deployment.** `.github/workflows/deploy.yml` (added 2026-10-06) runs after `ci` succeeds on
 `main`: it waits for a reviewer in the GitHub environment `production`, signs in to AWS with
 GitHub's OIDC token (the `docintel-github-deploy` stack, already created, holds the OIDC provider
-and two roles), deploys through a CloudFormation service role and runs `make smoke-live`. It has
-**not run yet**: the GitHub environment and its variables haven't been created. Until then
-deploys are a manual `make deploy`.
+and two roles), deploys through a CloudFormation service role and runs `make smoke-live`. **In
+use since 2026-10-06**: the first successful run ([run 37427484224](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/runs/37427484224)) took 8 minutes from approval to passing
+smoke tests. `make deploy` still works from a laptop.
 
 ## 10. Security
 
@@ -268,7 +268,7 @@ missing sentence-final account numbers, and reviewer corrections accepting inval
 
 ## 13. Known limitations
 
-Mock metrics are not model-quality evidence; the GitHub deploy workflow has not run yet, the deployed site still searches with the offline vectoriser until its next deploy, and the fine-tuning job has not run; vision OCR was measured on three synthetic pages only, and the judge was calibrated against rule-generated corruptions, not human graders; Textract, Azure embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat, Bedrock Claude and Titan embeddings are verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
+Mock metrics are not model-quality evidence; the fine-tuning job has not run; vision OCR was measured on three synthetic pages only, and the judge was calibrated against rule-generated corruptions, not human graders; Textract, Azure embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat, Bedrock Claude and Titan embeddings are verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
 synchronous; SQLite and embedded Chroma are single-node; single-tenant; lexical hashing embeddings
 in mock mode; lexical groundedness misses paraphrase errors and can over-flag scale words;
 pattern-based injection detection; heuristic active-content scan; four unfixed chromadb advisories
@@ -401,7 +401,8 @@ about ten minutes. Checks against the public URL:
   Bedrock calls with `is_mock: false`, made through the task role, costing about $0.006 in total.
 - Step 1 of the tour ran in a browser, with the badge reading **Live AI**.
 
-The deployed task uses the offline lexical vectoriser for search, not Titan embeddings.
+The deployed task used the offline lexical vectoriser for search until the 6 October deploy,
+which switched it to Titan embeddings (section 21).
 
 **Live smoke suite (2026-10-05).** `make smoke-live` runs 10 Playwright tests from
 `web/e2e-live/` against the deployed URL, then the read-only AWS checks in `deploy/aws/smoke.sh`.
@@ -427,8 +428,8 @@ labelled honestly. Status at the end of this round:
 | LlamaIndex as a switchable retrieval engine | **done, run live** | `app/retrieval/llamaindex_engine.py`, parity tests, offline and live comparison (`evals/results/rag_engine_compare_2026-10-06.json`), ADR-001 amendment |
 | LLM-as-judge run live | **done, run live** | judge reads full cited chunks, optional separate judge provider; Claude's answers judged by gpt-4.1-mini (1.00 on 20), calibration flagged all 52 corrupted answers (`evals/results/llm_judge_2026-10-06.json`), ADR-006 amendment |
 | Azure OpenAI fine-tuning experiment | **prepared; training not run** | seeded corpus with leakage-safe splits, records replayed through the production extractor, cost-guarded job script, evaluation harness, base gpt-4.1-mini baseline (0.984 held-out field accuracy, `evals/results/finetune_baseline_2026-10-06.json`); needs an Azure fine-tuning resource |
-| GitHub Actions CD with OIDC | **built; not run** | `deploy/aws/github-oidc.yaml` (stack created), `.github/workflows/deploy.yml`, ADR-011 and runbook; needs the GitHub `production` environment |
-| Titan embeddings on the live site | **configured; not deployed** | stack parameter, environment variables and task role permission in `deploy/aws/demo-stack.yaml`, embedding timeouts in the app; takes effect with the next deploy |
+| GitHub Actions CD with OIDC | **done, in use** | `deploy/aws/github-oidc.yaml`, `.github/workflows/deploy.yml`, ADR-011 and runbook; first successful deploy [run 37427484224](https://github.com/zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform/actions/runs/37427484224), all steps including the live smoke tests passed |
+| Titan embeddings on the live site | **done, live** | deployed by that run; `/health` reports `bedrock:amazon.titan-embed-text-v2:0` and the container logs show successful Titan calls |
 | Azure embeddings live run | **not started** | adapter implemented and unit-tested; needs a `text-embedding-3-small` deployment |
 
 **Found along the way:**
@@ -441,8 +442,12 @@ labelled honestly. Status at the end of this round:
   letters ("FY2028"); the judge caught both. Documented rather than changing the shared parser.
 - Live runs at temperature 0 still vary: one Claude answer failed the deterministic check in one
   run and passed in another.
+- The first pipeline runs failed safely twice. AWS refused the OIDC sign-in because GitHub's
+  subject now includes the owner and repository IDs (found in the denied CloudTrail event; the
+  trust policy now pins them). Then the stack update rolled back because a new alert email forces
+  the budget to be replaced and the replacement collided with its fixed name (the name now
+  includes the address). The live site was unaffected both times.
 
-**Remaining steps, each blocked on an account action:** create the GitHub `production`
-environment, then push so the first pipeline deploy (with Titan) and its smoke run happen; create
-an Azure embedding deployment and run the evaluation with it; create an Azure fine-tuning
-resource, then run, evaluate and record the training job and delete its deployment.
+**Remaining steps, each blocked on an account action:** create an Azure embedding deployment and
+run the evaluation with it; create an Azure fine-tuning resource, then run, evaluate and record
+the training job and delete its deployment.

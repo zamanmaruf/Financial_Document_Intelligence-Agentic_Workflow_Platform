@@ -232,8 +232,8 @@ a model-quality claim — say so before anyone asks.
 - **What could fail**: Lexical embeddings miss synonyms; semantic embeddings blur exact
   numbers and identifiers; model changes invalidate the index.
 - **Mitigation**: Collection-per-model; re-index on change; financial Q&A is term-heavy, so
-  lexical works acceptably for the sample corpus. Titan was evaluated live and passed the gate at
-  the same thresholds; the Azure embedding adapter is tested but not yet run live.
+  lexical works acceptably for the sample corpus. Titan was evaluated live, passed the gate at
+  the same thresholds and serves search on the deployed site; the Azure embedding adapter is tested but not yet run live.
 - **Production improvement**: Semantic embeddings + BM25 hybrid; embedding-model version in
   the drift report; background re-indexing.
 
@@ -498,9 +498,9 @@ a model-quality claim — say so before anyone asks.
   actionlint, script syntax), Playwright e2e job and docker job (build, run, health check).
   Installs from `requirements.lock`. `.github/workflows/deploy.yml` runs after CI passes on
   `main`: reviewer approval in the `production` environment, AWS credentials from GitHub OIDC,
-  deploy through a CloudFormation service role, then the live smoke tests. Status: the AWS roles
-  exist but the workflow hasn't run yet (the GitHub environment is not created); deploys so far
-  were by hand with `make deploy`.
+  deploy through a CloudFormation service role, then the live smoke tests. In use since
+  6 October 2026; its first runs caught a changed OIDC subject format and a budget-replacement
+  name clash, both fixed in the templates.
 - **What could fail**: Environment drift between CI and production.
 - **Mitigation**: Locked dependencies; same Docker image for CI smoke test and runtime.
 - **Production improvement**: Image signing, SBOM, vulnerability scanning, a staging
