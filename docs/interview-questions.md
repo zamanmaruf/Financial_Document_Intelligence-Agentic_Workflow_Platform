@@ -14,7 +14,7 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 [Observability](#observability) · [MLOps](#mlops) · [Drift](#drift) · [CI/CD](#cicd) ·
 [Security & privacy](#security--privacy) · [Distributed systems](#distributed-systems) ·
 [Financial services](#financial-services) · [Architecture](#architecture) ·
-[Scalability](#scalability) · [Troubleshooting](#troubleshooting)
+[Scalability](#scalability) · [Troubleshooting](#troubleshooting) · [Fine-tuning](#fine-tuning)
 
 ---
 
@@ -373,10 +373,15 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
   agents so control flow, retries, validation and logging stay in my code where they're
   testable and auditable (ADR-001). The seam means LangChain could be removed without touching
   business logic.
-- **Follow-up:** Why not LlamaIndex?
-- **Follow-up answer:** LlamaIndex is strong for indexing and query engines, but I wanted to own
-  retrieval and citation binding explicitly. Either works as an adapter layer; the choice
-  mattered less than keeping the framework at the edge.
+- **Follow-up:** Where does LlamaIndex fit?
+- **Follow-up answer:** As a second retrieval engine behind the same `RetrieverProtocol`
+  (`DOCINTEL_RAG_ENGINE=llamaindex`, optional extra). A `VectorStoreIndex` retriever reads the
+  existing Chroma or in-memory store through a small adapter, so ingestion, citation binding,
+  thresholds and guardrails stay in my code. Parity tests check filters, document scoping and the
+  similarity threshold, and unsupported filters raise instead of silently widening the search.
+  Live with Titan it returned the same ranked top-4 chunks and scores as the native engine for
+  all 51 evaluation queries, for about 1 ms of overhead per query (ADR-001 amendment, README
+  engine comparison).
 
 ### Q33. What are the risks of heavy framework adoption in regulated systems?
 - **Concise:** Hidden behaviour, fast-moving APIs, harder audits.
@@ -461,12 +466,23 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 - **Follow-up answer:** Add a quality heuristic (ratio of dictionary words or valid characters)
   to trigger OCR even when text exists; currently only sparsity triggers it.
 
-### Q40. Tesseract or Textract?
+### Q40. Tesseract, Textract or a vision model?
 - **Concise:** Tesseract is free and local; Textract is managed and more accurate on complex
-  layouts.
-- **Senior:** Both implement the OCR provider interface. Tesseract suits offline/dev and
+  layouts; a multimodal model reads noisy scans best but costs a model call per page.
+- **Senior:** All three implement the OCR provider interface. Tesseract suits offline/dev and
   sensitive deployments where data can't leave the host; Textract offers better accuracy,
-  tables and forms, at a per-page cost. `auto` picks Tesseract if installed.
+  tables and forms, at a per-page cost. Vision OCR (`bedrock_vision` with Claude,
+  `azure_vision` with an Azure deployment such as gpt-4.1-mini) sends each rendered page as an
+  image with a versioned transcription prompt, and Tesseract cross-checks the numbers when it is
+  installed (ADR-013). On three scored scans, two deliberately degraded, both vision models had a
+  character error rate of 0.000 against Tesseract's 0.104, at about 3 s and under a cent a page.
+  Three synthetic pages prove the integration, not production accuracy, so OCR'd documents still
+  go to review. `auto` picks Tesseract if installed.
+- **Follow-up:** Can a vision model hallucinate text?
+- **Follow-up answer:** Yes, it can produce fluent text that isn't on the page, which a classic
+  OCR engine doesn't. That's why the numbers are cross-checked against Tesseract, extraction
+  evidence must still be found in the transcribed text, and every OCR'd document is reviewed.
+  Image bytes are never logged; their hashes are.
 - **Follow-up:** How did you test Textract without AWS?
 - **Follow-up answer:** A stub client returning a realistic `DetectDocumentText` response
   (`FakeTextract` in `tests/support.py`), injected into the provider; the rendering and
@@ -688,7 +704,8 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 - **Concise:** They become labelled data for evaluation, monitoring and potential fine-tuning.
 - **Senior:** Correction and rejection rates are drift metrics; corrected extractions are
   ground-truth candidates for the evaluation set; clusters of corrections point to prompt or
-  schema fixes. The fine-tuning pathway document describes how they'd become a training set.
+  schema fixes. The fine-tuning pathway document describes how they'd become a training set;
+  the experiment in this repository uses synthetic data instead (Q113).
 - **Follow-up:** Any risk in using reviewer corrections as ground truth?
 - **Follow-up answer:** Reviewer error and bias. Double-annotate a sample, measure agreement,
   and adjudicate disagreements before promoting corrections into the gold set.
@@ -938,12 +955,15 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 ### Q83. What runs in CI?
 - **Concise:** Lint, format check, type check, tests, evaluation, quality gate, Docker build and
   health check.
-- **Senior:** Two jobs: `quality` (Python 3.12 with Tesseract installed so the OCR test runs;
+- **Senior:** Five jobs: `quality` (Python 3.12 with Tesseract installed so the OCR test runs;
   install from the lock; ruff; mypy strict; unit/integration/e2e; `run_evals.py`;
-  `quality_gate.py`; upload the report) and `docker` (build, run, poll `/health`). Concurrency
-  groups cancel superseded runs; permissions are read-only.
+  `quality_gate.py`; upload the report), `web` (lint, type check, Vitest, build), `infra`
+  (cfn-lint on the CloudFormation templates, deploy script syntax, actionlint on the workflows),
+  `e2e` (Playwright against the real API: tour, accessibility, phone layout) and `docker`
+  (build, run, poll `/health`). Concurrency groups cancel superseded runs; permissions are
+  read-only.
 - **Follow-up:** Has this pipeline run on GitHub?
-- **Follow-up answer:** Yes. Both jobs pass on GitHub Actions, and the same commands run locally
+- **Follow-up answer:** Yes, CI passes on GitHub Actions, and the same commands run locally
   through `make check` and `make docker`, so a failure can be reproduced without pushing.
 
 ### Q84. Why run the evaluation in CI?
@@ -955,11 +975,19 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 - **Follow-up answer:** A separate, scheduled or release-candidate job with credentials, a
   per-provider baseline, and tolerance for run-to-run variance.
 
-### Q85. What would CD look like?
-- **Concise:** Build once, sign, promote the same image through environments with gates.
-- **Senior:** Push an image with SBOM and vulnerability scan; deploy to staging; run smoke tests
-  and a real-provider evaluation; require approval; blue/green or canary to production; config
-  (model IDs, thresholds) promoted as versioned artefacts too.
+### Q85. How does CD work here, and what would production CD add?
+- **Concise:** After CI passes on `main`, an approved GitHub Actions job deploys with short-lived
+  AWS credentials from OIDC and runs the live smoke tests.
+- **Senior:** `deploy.yml` triggers on a successful `ci` run for `main`, waits in the GitHub
+  environment `production` for a reviewer, then assumes `docintel-github-deploy` through GitHub's
+  OIDC token (no stored AWS keys; the trust policy pins the repository and the environment). That
+  role can only create change sets on the demo stack that name the CloudFormation service role,
+  which holds the resource permissions. It builds the ARM64 image natively, deploys, and runs
+  `make smoke-live`. Honest status: the AWS roles exist and the workflow passes actionlint, but it
+  hasn't run yet because the GitHub environment hasn't been created; deploys so far were by hand
+  with `make deploy`. Production CD would add a staging environment with a real-provider
+  evaluation, image signing with an SBOM and vulnerability scan, blue/green or canary rollout,
+  and config (model IDs, thresholds) promoted as versioned artefacts.
 - **Follow-up:** How do you roll back a bad prompt quickly?
 - **Follow-up answer:** Prompts ship with the image, so roll back the image; or keep prompt
   selection in config to switch versions without a rebuild.
@@ -1239,3 +1267,39 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 - **Follow-up:** How did you prevent `.env` from affecting tests?
 - **Follow-up answer:** Test settings are built with `Settings(_env_file=None, …)` via
   `tests/support.make_settings`, so tests are hermetic regardless of the developer's environment.
+
+## Fine-tuning
+
+### Q113. Did you fine-tune a model? How did you set it up?
+- **Concise:** I prepared an Azure OpenAI fine-tuning experiment for extraction: a seeded
+  synthetic corpus, training records in the exact production prompt format, a cost-guarded job
+  script and an evaluation harness. The training job itself hasn't run yet.
+- **Senior:** 320 synthetic documents across five types, with layouts, label wording, number
+  formats, missing fields, distractors and planted instructions varied. Splits are by layout
+  family and by name pool (four families train, one validation, two test per type), so the test
+  set has layouts and names the model never saw, and tests check that nothing crosses. Each
+  record is the production prompt (`extraction.financial_entities@1.2.0`, hash pinned) over text
+  read back by the production PDF extractor, and each target is replayed through the real
+  `EntityExtractor`; it's kept only if every value comes back with verified evidence. The job
+  script estimates cost offline (about 712,000 billed tokens, roughly $1.07 for gpt-4.1-nano at
+  the listed prices) and refuses to submit above a cap or without an explicit cost confirmation.
+- **Follow-up:** Why synthetic data, and what does that limit?
+- **Follow-up answer:** There's no real customer data in this project, and synthetic data comes
+  with exact labels. The cost is realism: a model that wins here has learnt these generators, not
+  real statements. The experiment shows the method; real reviewer-corrected documents would be the
+  production training set (fine-tuning pathway document).
+
+### Q114. How will you judge whether fine-tuning was worth it?
+- **Concise:** Same held-out documents, same extractor, same prompt: base nano, fine-tuned nano
+  and base mini side by side on accuracy, invented values, JSON validity, latency and cost.
+- **Senior:** The baseline is already measured: base gpt-4.1-mini scored 0.984 field accuracy on
+  the 80 held-out documents and 0.989 on the 25 original samples, at about $0.001 a document.
+  Its errors were planted "report the fee as X" instructions (followed in two of the three
+  injected documents across runs) and reporting 0.0 for "Tax: exempt" where the labels say null.
+  Every wrong value was flagged by production validation. The fine-tuned model is worth it only
+  if it matches mini's accuracy at nano's cost, or fixes those failure types, without new ones;
+  the result is recorded either way.
+- **Follow-up:** Could fine-tuning make injection worse?
+- **Follow-up answer:** It could if the training data taught the model to copy instructions from
+  documents. Here the targets always ignore the planted note, the held-out set has its own
+  planted notes, and the guardrails and evidence checks stay in place whatever the model does.

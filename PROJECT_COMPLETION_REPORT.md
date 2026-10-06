@@ -1,11 +1,11 @@
 # Project completion report — fin-docintel
 
-Date: 2026-10-03 · Version: 0.1.0 · Python 3.12.14 · License: MIT
+Date: 2026-10-03, updated 2026-10-06 (section 21) · Version: 0.1.0 · Python 3.12.14 · License: MIT
 
 ## 1. Executive summary
 
 `fin-docintel` is a runnable, tested Financial Document Intelligence & Agentic Workflow Platform.
-It ingests financial PDFs, extracts text (with Tesseract or Textract OCR fallback), classifies
+It ingests financial PDFs, extracts text (with Tesseract, Textract or vision-model OCR fallback), classifies
 documents, extracts typed and validated fields with verified evidence, indexes PII-masked chunks
 in a vector store, answers questions with citations and deterministic groundedness checks,
 routes uncertainty to a human review queue, and records every step in a hash-chained audit trail.
@@ -24,18 +24,21 @@ extraction normalised match 0.989, and no missing or hallucinated fields. The RE
 passes the same gate on the same 30 documents with no code or prompt changes (extraction
 normalised match 0.995, retrieval MRR 0.979). Textract, Azure embeddings and Azure
 reasoning-model mode are implemented and tested with stubs, but have not been run against live
-endpoints.
+endpoints. Vision OCR (Claude on Bedrock, gpt-4.1-mini on Azure), a switchable LlamaIndex
+retrieval engine and a cross-provider LLM judge were since added and run live; an Azure OpenAI
+fine-tuning experiment and a GitHub Actions deploy pipeline are built but have not run yet
+(section 21).
 
 A **public guided demo site** was added afterwards: a React landing page, an eight-step guided
 tour and a playground for non-technical visitors. It's served by the same container in an opt-in
 demo mode with per-visitor workspaces, rate limits, a daily live-AI budget and 24-hour retention.
 It's deployed on AWS at https://d1cpufi9ii8q1y.cloudfront.net (section 20).
 
-Final validation (this run): **352 Python tests passed, 1 skipped** locally (the skipped
-Tesseract test passes in the Docker image, which ships Tesseract), **95% line coverage**, ruff lint
-and format clean, **mypy `--strict` clean on 96 files**, **quality gate PASSED (27 checks)** in
-mock mode. Web: ESLint, TypeScript and 9 Vitest tests pass, and all **10 Playwright browser tests**
-pass (the tour, axe accessibility scans and a mobile check).
+Final validation (2026-10-06): **446 Python tests passed** locally, none skipped (Tesseract is
+installed), **95% line coverage**, ruff lint and format clean, **mypy `--strict` clean on 108
+files**, **quality gate PASSED (27 checks)** in mock mode. Web: ESLint, TypeScript, **20 Vitest
+tests** and the build pass; **17 Playwright browser tests** pass in Chromium (14 desktop, 3 phone)
+and the 14 desktop tests pass in WebKit. `cfn-lint` and `actionlint` are clean.
 
 ## 2. Architecture
 
@@ -107,6 +110,9 @@ LangChain is used only as an integration layer (adapters, `PromptTemplate`,
 | AWS Bedrock — Titan embeddings | Implemented | **verified live** (Titan Text Embeddings V2 in a full evaluation run; MRR 0.979) |
 | Azure OpenAI — chat | Implemented, config validated at start-up | **verified live** (`gpt-4.1-mini`, full evaluation on 30 documents, gate passed); reasoning mode verified only by asserting the request body |
 | Azure OpenAI — embeddings | Implemented | unit-tested with fakes; not called live (needs an embedding deployment) |
+| Vision OCR — Claude on Bedrock, gpt-4.1-mini on Azure OpenAI | Implemented (`VisionLLMOCRExtractor`, ADR-013) | **verified live** on three scored scans (character error rate 0.000 for both, Tesseract 0.104) and through the whole pipeline on two scans |
+| LlamaIndex retrieval engine | Implemented (`DOCINTEL_RAG_ENGINE=llamaindex`, optional extra) | parity tests; **verified live** with Titan: same ranked chunks as the native engine for all 51 evaluation queries |
+| Azure OpenAI — fine-tuning | Scripts implemented (`scripts/finetune/`) | dataset built and checked by tests, cost estimated, base gpt-4.1-mini baseline measured live; **training job not yet run** (needs a fine-tuning resource) |
 | AWS Textract OCR | Implemented (`TextractOCRExtractor`) | integration test with a stubbed Textract client exercising real rendering + line assembly; a live call reached AWS but the test account had no Textract subscription (`SubscriptionRequiredException`, surfaced as a provider error) |
 | Tesseract OCR | Implemented | real OCR verified in the Docker image: scanned invoice → all 8 fields match ground truth |
 | Chroma | Implemented (persistent) | used in Docker/live runs and tests |
@@ -126,15 +132,15 @@ lexical hashing vectoriser. Every response and log line is labelled (`is_mock`, 
 
 | Suite | Tests | Result |
 |---|---|---|
-| Unit (`tests/unit`) | 178 | passed |
-| Integration (`tests/integration`) | 121 | 120 passed, 1 skipped locally (`requires_tesseract`) |
-| End-to-end API, console, demo mode and site serving (`tests/e2e`) | 54 | passed |
-| **Python total** | **353** | **352 passed, 1 skipped · 95% coverage (app)** |
-| Web unit (`web/src/**/*.test.ts`, Vitest) | 9 | passed |
-| Browser (`web/e2e`, Playwright: tour, axe, mobile) | 10 | passed (plus one screenshot spec, skipped unless `SCREENSHOTS=1`) |
+| Unit (`tests/unit`) | 251 | passed |
+| Integration (`tests/integration`) | 138 | passed (the Tesseract test is skipped where Tesseract isn't installed) |
+| End-to-end API, console, demo mode and site serving (`tests/e2e`) | 57 | passed |
+| **Python total** | **446** | **446 passed · 95% coverage (app)** |
+| Web unit (`web/src/**/*.test.ts`, Vitest) | 20 | passed |
+| Browser (`web/e2e`, Playwright: tour, evidence viewer, axe, mobile) | 14 desktop + 3 phone | passed in Chromium; the desktop set also passes in WebKit (plus one screenshot spec, skipped unless `SCREENSHOTS=1`) |
 
 Static checks: `ruff check` and `ruff format --check` clean (app, scripts, tests); `mypy --strict`
-clean (96 source files); ESLint and `tsc` clean for `web/`; `cfn-lint` clean for the AWS template. The console was also checked by hand in a browser against a mock-mode
+clean (108 source files); ESLint and `tsc` clean for `web/`; `cfn-lint` clean for the AWS templates; `actionlint` clean for the workflows. The console was also checked by hand in a browser against a mock-mode
 server (upload, fields, Q&A, review queue; screenshots in `docs/images/`). Earlier manual
 validation: live Uvicorn + `scripts/demo.py`
 (no 5xx; the two 422s are intentional malformed-upload rejections), Docker build + container smoke
@@ -175,7 +181,14 @@ on GitHub passed both
 The demo work adds **web** (ESLint, tsc, Vitest, build), **e2e** (Playwright against a demo-mode
 API) and **infra** (`cfn-lint`, deploy-script syntax) jobs, and the docker job now builds the
 multi-stage image and smoke-tests the site in demo mode. Every command in these jobs passed
-locally. Deployment is a manual `make deploy`, not a CI step.
+locally. The infra job also runs `actionlint` on the workflows.
+
+**Deployment.** `.github/workflows/deploy.yml` (added 2026-10-06) runs after `ci` succeeds on
+`main`: it waits for a reviewer in the GitHub environment `production`, signs in to AWS with
+GitHub's OIDC token (the `docintel-github-deploy` stack, already created, holds the OIDC provider
+and two roles), deploys through a CloudFormation service role and runs `make smoke-live`. It has
+**not run yet**: the GitHub environment and its variables haven't been created. Until then
+deploys are a manual `make deploy`.
 
 ## 10. Security
 
@@ -255,7 +268,7 @@ missing sentence-final account numbers, and reviewer corrections accepting inval
 
 ## 13. Known limitations
 
-Mock metrics are not model-quality evidence; Textract, Azure embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat, Bedrock Claude and Titan embeddings are verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
+Mock metrics are not model-quality evidence; the GitHub deploy workflow has not run yet, the deployed site still searches with the offline vectoriser until its next deploy, and the fine-tuning job has not run; vision OCR was measured on three synthetic pages only, and the judge was calibrated against rule-generated corruptions, not human graders; Textract, Azure embeddings and Azure reasoning mode are unverified live (Azure OpenAI chat, Bedrock Claude and Titan embeddings are verified); the real-model evaluation uses only 30 synthetic documents, and live runs at temperature 0 are not guaranteed to repeat; the console is a single-user operator tool; processing is
 synchronous; SQLite and embedded Chroma are single-node; single-tenant; lexical hashing embeddings
 in mock mode; lexical groundedness misses paraphrase errors and can over-flag scale words;
 pattern-based injection detection; heuristic active-content scan; four unfixed chromadb advisories
@@ -267,7 +280,7 @@ scheduled drift job or alerting; indicative pricing only; OCR has no table/layou
 Asynchronous job queue and workers; fine-tuning (dataset, job tooling and baseline evaluation since
 added, training job not yet run: `docs/fine-tuning-pathway.md` section 8);
 a full product front end (the `/ui` console is deliberately minimal: no page-image highlighting,
-saved views or multi-user features); multi-tenancy; SSO; retention endpoints; CD pipeline; distributed tracing; hybrid
+saved views or multi-user features); multi-tenancy; SSO; retention endpoints; distributed tracing; hybrid
 search and re-ranking; autonomous tool-using agents (by design, ADR-004).
 
 ## 15. Components requiring credentials
@@ -299,7 +312,7 @@ make install                      # .venv (Python 3.12) + package + dev tools
 make dev                          # API on http://127.0.0.1:8000 (console at /ui, OpenAPI at /docs)
 make demo                         # live walkthrough (requires `make dev` in another terminal)
 make lint typecheck               # ruff + mypy --strict
-make test                         # 353 Python tests with coverage
+make test                         # 446 Python tests with coverage
 make web && make demo-site        # build the demo site; serve it at http://127.0.0.1:8000/
 make web-check && make web-e2e    # web lint/types/unit/build; Playwright browser tests
 make eval && make gate            # evaluation report + quality gate
@@ -402,3 +415,34 @@ cookie state, and the test asserts that B's session is newly created.
 
 Still to do: confirm the AWS Budgets email subscription, and deactivate the admin access key used
 for the first deploy.
+
+## 21. Addendum: résumé alignment round (2026-10-06)
+
+Seven items were planned so that every capability described for this project exists and is
+labelled honestly. Status at the end of this round:
+
+| Item | Status | Evidence |
+|---|---|---|
+| Vision OCR with Claude on Bedrock and gpt-4.1-mini on Azure OpenAI | **done, run live** | `app/providers/ocr/vision_llm.py`, ADR-013; `scripts/ocr_compare.py` scored Tesseract and both vision models on three scans (`evals/results/ocr_compare_2026-10-06.json`) |
+| LlamaIndex as a switchable retrieval engine | **done, run live** | `app/retrieval/llamaindex_engine.py`, parity tests, offline and live comparison (`evals/results/rag_engine_compare_2026-10-06.json`), ADR-001 amendment |
+| LLM-as-judge run live | **done, run live** | judge reads full cited chunks, optional separate judge provider; Claude's answers judged by gpt-4.1-mini (1.00 on 20), calibration flagged all 52 corrupted answers (`evals/results/llm_judge_2026-10-06.json`), ADR-006 amendment |
+| Azure OpenAI fine-tuning experiment | **prepared; training not run** | seeded corpus with leakage-safe splits, records replayed through the production extractor, cost-guarded job script, evaluation harness, base gpt-4.1-mini baseline (0.984 held-out field accuracy, `evals/results/finetune_baseline_2026-10-06.json`); needs an Azure fine-tuning resource |
+| GitHub Actions CD with OIDC | **built; not run** | `deploy/aws/github-oidc.yaml` (stack created), `.github/workflows/deploy.yml`, ADR-011 and runbook; needs the GitHub `production` environment |
+| Titan embeddings on the live site | **configured; not deployed** | stack parameter, environment variables and task role permission in `deploy/aws/demo-stack.yaml`, embedding timeouts in the app; takes effect with the next deploy |
+| Azure embeddings live run | **not started** | adapter implemented and unit-tested; needs a `text-embedding-3-small` deployment |
+
+**Found along the way:**
+- The fine-tuning generator printed a currency code on fund documents whose currency was
+  labelled absent; the base-model baseline exposed it, and the dataset was rebuilt.
+- Base gpt-4.1-mini followed a planted "report the fee as X" note in two of the three held-out
+  documents that contain one (across runs), and reported 0.0 for "Tax: exempt" where the labels
+  say null. Production validation flagged every wrong held-out value for review.
+- The lexical groundedness check misses negation entirely and doesn't read numbers glued to
+  letters ("FY2028"); the judge caught both. Documented rather than changing the shared parser.
+- Live runs at temperature 0 still vary: one Claude answer failed the deterministic check in one
+  run and passed in another.
+
+**Remaining steps, each blocked on an account action:** create the GitHub `production`
+environment, then push so the first pipeline deploy (with Titan) and its smoke run happen; create
+an Azure embedding deployment and run the evaluation with it; create an Azure fine-tuning
+resource, then run, evaluate and record the training job and delete its deployment.

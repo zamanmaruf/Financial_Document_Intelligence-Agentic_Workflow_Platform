@@ -31,7 +31,7 @@ a model-quality claim — say so before anyone asks.
 >
 > The architecture is a FastAPI modular monolith. A document is uploaded — size-capped,
 > magic-byte checked, hashed for de-duplication — then processed by an explicit state machine:
-> text extraction with pypdf, falling back to Tesseract or Textract for scans; classification
+> text extraction with pypdf, falling back to Tesseract, Textract or a vision model for scans; classification
 > by an LLM; structured extraction against a per-type schema defined in YAML; validation with
 > rules like subtotal plus tax equals total and assets equal liabilities plus equity; and
 > evidence checking, where each extracted value's quoted snippet must actually appear in the
@@ -144,14 +144,19 @@ a model-quality claim — say so before anyone asks.
 - **Why**: A meaningful share of financial documents are scans or faxes.
 - **How**: `app/ingestion/extractors.py` uses native `pypdf` text first; if the text layer is too
   sparse it renders pages with `pypdfium2` and runs Tesseract (`app/providers/ocr/tesseract.py`)
-  or AWS Textract `DetectDocumentText` (`app/providers/ocr/textract.py`). OCR use adds the
-  `ocr_used` review reason; OCR unavailable ends in `NEEDS_REVIEW (ocr_unavailable)`. Verified in
-  Docker: the scanned sample invoice extracted all eight fields correctly.
+  or AWS Textract `DetectDocumentText` (`app/providers/ocr/textract.py`), or sends each page
+  image to a multimodal model (`app/providers/ocr/vision_llm.py`: Claude on Bedrock or an Azure
+  OpenAI deployment such as gpt-4.1-mini) with Tesseract cross-checking the numbers (ADR-013).
+  OCR use adds the `ocr_used` review reason; OCR unavailable ends in
+  `NEEDS_REVIEW (ocr_unavailable)`. Verified in Docker: the scanned sample invoice extracted all
+  eight fields correctly. Measured on three scored scans (two deliberately degraded): character
+  error rate 0.104 for Tesseract, 0.000 for both vision models (`make ocr-compare`).
 - **What could fail**: Misread digits (5 ↔ S, 0 ↔ O), lost table structure, skewed scans.
 - **Mitigation**: OCR output always goes to review; validation rules catch arithmetic
   inconsistencies; numeric coercion rejects garbage.
 - **Production improvement**: Textract `AnalyzeDocument` (tables/forms), image pre-processing
-  (deskew, denoise), per-field OCR confidence feeding the review decision.
+  (deskew, denoise), per-field OCR confidence feeding the review decision, and a vision-OCR
+  evaluation on real scans (three synthetic pages show the integration, not accuracy).
 
 ### 6. Classification
 
@@ -210,6 +215,9 @@ a model-quality claim — say so before anyone asks.
   point at irrelevant chunks.
 - **Mitigation**: Score threshold + refusal on no evidence; groundedness check; citation
   correctness evaluated; weak grounding routes to review.
+- **Retrieval engines**: the built-in retriever or LlamaIndex (`DOCINTEL_RAG_ENGINE=llamaindex`)
+  over the same store; live with Titan both returned identical ranked chunks for all 51
+  evaluation queries (ADR-001 amendment).
 - **Production improvement**: Hybrid search + re-ranking, query rewriting, answer-level user
   feedback loop.
 
@@ -224,7 +232,8 @@ a model-quality claim — say so before anyone asks.
 - **What could fail**: Lexical embeddings miss synonyms; semantic embeddings blur exact
   numbers and identifiers; model changes invalidate the index.
 - **Mitigation**: Collection-per-model; re-index on change; financial Q&A is term-heavy, so
-  lexical works acceptably for the sample corpus.
+  lexical works acceptably for the sample corpus. Titan was evaluated live and passed the gate at
+  the same thresholds; the Azure embedding adapter is tested but not yet run live.
 - **Production improvement**: Semantic embeddings + BM25 hybrid; embedding-model version in
   the drift report; background re-indexing.
 
@@ -303,7 +312,8 @@ a model-quality claim — say so before anyone asks.
 - **What could fail**: Paraphrased but wrong statements pass lexical checks; correct
   paraphrases ("4.35 million") are flagged.
 - **Mitigation**: Unsupported numbers are the strictest check; optional LLM judge in
-  evaluation; low groundedness goes to review rather than being silently returned.
+  evaluation (it reads the full cited chunks, and caught every negated answer the lexical check
+  missed in calibration); low groundedness goes to review rather than being silently returned.
 - **Production improvement**: NLI-based entailment check, calibrated judge, numeric
   normalisation for scale words.
 
@@ -423,10 +433,13 @@ a model-quality claim — say so before anyone asks.
 - **How**: Retrieval: precision@k, recall@k, hit rate, MRR, document hit rate, context
   relevance. Answers: completeness, groundedness, citation correctness, relevance,
   unsupported-statement rate, schema validity, correct and false refusal rates. Optional LLM
-  judge.
+  judge, which can be a different provider from the answering model (`eval_judge_provider`); live,
+  gpt-4.1-mini judged Claude's 20 answers at 1.00 and flagged all 52 deliberately corrupted copies
+  (`make judge-calibration`).
 - **What could fail**: Lexical metrics miss semantic correctness.
 - **Mitigation**: Multiple complementary metrics; failing cases (a04, a11, a12) kept visible.
-- **Production improvement**: Human-graded answer sets, judge calibration against humans.
+- **Production improvement**: Human-graded answer sets, judge calibration against humans (the
+  current calibration uses rule-generated corruptions only).
 
 ### 26. Test harness
 
@@ -470,19 +483,28 @@ a model-quality claim — say so before anyone asks.
   invocation, evaluation + gate in CI, drift monitor, invocation ledger with cost.
 - **What could fail**: Untracked prompt edits, silent model upgrades.
 - **Mitigation**: Prompt hash lock; version change surfaced by drift report.
+- **Fine-tuning**: an Azure OpenAI extraction fine-tuning experiment is prepared (seeded
+  synthetic corpus with leakage-safe splits, records in the production prompt format, a
+  cost-guarded job script, an evaluation harness and a measured gpt-4.1-mini baseline); the
+  training job has not run yet (`docs/fine-tuning-pathway.md` section 8).
 - **Production improvement**: Prompt/model registry with approvals, shadow and canary rollout.
 
 ### 30. CI/CD
 
-- **What**: Automated build, test and (eventually) deploy.
+- **What**: Automated build, test and deploy.
 - **Why**: Every change validated the same way.
 - **How**: `.github/workflows/ci.yml`: quality job (ruff, format, mypy strict, unit/integration/e2e,
-  evals, gate, artifact upload) and docker job (build, run, health check). Installs from
-  `requirements.lock`.
+  evals, gate, artifact upload), web job (lint, type check, Vitest, build), infra job (cfn-lint,
+  actionlint, script syntax), Playwright e2e job and docker job (build, run, health check).
+  Installs from `requirements.lock`. `.github/workflows/deploy.yml` runs after CI passes on
+  `main`: reviewer approval in the `production` environment, AWS credentials from GitHub OIDC,
+  deploy through a CloudFormation service role, then the live smoke tests. Status: the AWS roles
+  exist but the workflow hasn't run yet (the GitHub environment is not created); deploys so far
+  were by hand with `make deploy`.
 - **What could fail**: Environment drift between CI and production.
 - **Mitigation**: Locked dependencies; same Docker image for CI smoke test and runtime.
-- **Production improvement**: Image signing, SBOM, vulnerability scanning, environment
-  promotion, CD with approval gates.
+- **Production improvement**: Image signing, SBOM, vulnerability scanning, a staging
+  environment with a real-provider evaluation before promotion.
 
 ### 31. Observability
 
@@ -579,11 +601,14 @@ a model-quality claim — say so before anyone asks.
 
 - **What**: Running the platform for real users.
 - **How today**: Docker image (non-root, read-only FS, health check, Tesseract included) and
-  docker compose; CI builds and smoke-tests the image.
+  docker compose; CI builds and smoke-tests the image. A public demo runs on AWS (one Fargate
+  task behind an ALB and CloudFront, Claude on Bedrock through the task role, no stored keys;
+  `deploy/aws/`, ADR-011), checked after each deploy with `make smoke-live`.
 - **What could fail**: Single container is a single point of failure; local volume storage.
 - **Mitigation**: Stateless API design apart from storage.
-- **Production improvement**: ECS/EKS behind an ALB with TLS, RDS, S3 + KMS, managed vector
-  store, secrets manager, private networking to Bedrock (VPC endpoints).
+- **Production improvement**: More than one task (the demo is single-instance by design), RDS,
+  S3 + KMS, managed vector store, secrets manager, private networking to Bedrock (VPC
+  endpoints).
 
 ### 40. Trade-offs
 

@@ -107,13 +107,17 @@ blocking work moved off the event loop (`run_in_threadpool`).
 `deploy/aws/demo-stack.yaml` runs one ARM64 Fargate task behind an ALB, which only accepts
 CloudFront's origin-facing prefix list plus a secret origin header, and CloudFront for HTTPS.
 The task role allows only `bedrock:InvokeModel` on the configured inference profile, its
-foundation model and the Titan Text Embeddings V2 model. Search on the deployed site uses Titan
+foundation model and the Titan Text Embeddings V2 model. The stack configures search with Titan
 (semantic) rather than the offline hashing vectoriser; round 3 of the real-model evaluation passed
-the quality gate with Titan at the same retrieval thresholds. Embedding calls aren't counted toward
+the quality gate with Titan at the same retrieval thresholds. This takes effect at the next
+deploy: the site deployed on 3 October still uses the hashing vectoriser. Embedding calls aren't counted toward
 the daily live budget (they cost a fraction of a cent per document). The session secret is in SSM. An AWS Budgets alert at $30 a month is the
 backstop.
 
 ### Delivery: GitHub Actions with OIDC
+
+Status: the AWS side (`docintel-github-deploy` stack) exists; the workflow has not run yet
+because the GitHub `production` environment has not been created.
 
 After `ci` passes on `main`, `.github/workflows/deploy.yml` waits for a reviewer in the GitHub
 environment `production`, assumes `docintel-github-deploy` with GitHub's OIDC token, runs
