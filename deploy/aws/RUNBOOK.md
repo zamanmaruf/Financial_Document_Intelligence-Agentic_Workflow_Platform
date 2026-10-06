@@ -118,7 +118,11 @@ AWS_PROFILE=<admin> make deploy-cd-bootstrap   # deploy/aws/github-oidc.yaml, st
 ```
 
 It creates the GitHub OIDC provider (set `CreateOidcProvider=false` if the account already has
-one) and two roles, and prints their ARNs. Then, in the repository's GitHub settings:
+one) and two roles, and prints their ARNs. For another repository, also override
+`GitHubRepository`, `GitHubOwnerId` and `GitHubRepositoryId` (the `owner.id` and `id` fields of
+`https://api.github.com/repos/<owner>/<repo>`). The role trusts only that exact subject; if
+GitHub sends a different one, the deploy fails at "Sign in to AWS", and the subject it sent is in
+CloudTrail (`AssumeRoleWithWebIdentity` events, `userIdentity.userName`). Then, in the repository's GitHub settings:
 
 1. **Environments → New environment** `production`: add yourself under *Required reviewers* and
    limit *Deployment branches* to `main`.
@@ -129,7 +133,7 @@ one) and two roles, and prints their ARNs. Then, in the repository's GitHub sett
 
 | Role | Trusted by | Permissions |
 | --- | --- | --- |
-| `docintel-github-deploy` | GitHub OIDC tokens whose subject is `repo:<owner>/<repo>:environment:production` | Create change sets on the demo stack **only with** the service role below, execute them, push images to the stack's ECR repository, read the two SSM parameters, and the read-only calls `smoke.sh` makes |
+| `docintel-github-deploy` | GitHub OIDC tokens whose subject is `repo:<owner>@<owner-id>/<repo>@<repo-id>:environment:production` (GitHub's subject format includes the numeric IDs) | Create change sets on the demo stack **only with** the service role below, execute them, push images to the stack's ECR repository, read the two SSM parameters, and the read-only calls `smoke.sh` makes |
 | `docintel-cfn-exec` | CloudFormation in this account | Manage the demo stack's resources. IAM, ECS, ECR, logs, load balancers, SSM and Budgets are limited to the stack's resource names; EC2 networking and CloudFront are limited by service, because CloudFormation generates their names |
 
 Anyone who can get a change approved can change what the stack creates (for example the task

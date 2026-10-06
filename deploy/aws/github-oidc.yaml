@@ -12,6 +12,19 @@ Parameters:
     Default: zamanmaruf/Financial_Document_Intelligence-Agentic_Workflow_Platform
     AllowedPattern: "[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
     Description: owner/name of the repository whose workflows may deploy.
+  GitHubOwnerId:
+    Type: String
+    Default: "77639071"
+    AllowedPattern: "[0-9]+"
+    Description: >-
+      Numeric ID of the repository owner (https://api.github.com/repos/OWNER/NAME, owner.id).
+      GitHub's OIDC subject includes it, so a different account that later takes the same name
+      can't match.
+  GitHubRepositoryId:
+    Type: String
+    Default: "1398362139"
+    AllowedPattern: "[0-9]+"
+    Description: Numeric ID of the repository (the id field of the same API response).
   GitHubEnvironment:
     Type: String
     Default: production
@@ -251,7 +264,10 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepository}:environment:${GitHubEnvironment}"
+                token.actions.githubusercontent.com:sub: !Sub
+                  - "repo:${Owner}@${GitHubOwnerId}/${Name}@${GitHubRepositoryId}:environment:${GitHubEnvironment}"
+                  - Owner: !Select [0, !Split ["/", !Ref GitHubRepository]]
+                    Name: !Select [1, !Split ["/", !Ref GitHubRepository]]
       Policies:
         - PolicyName: deploy-demo-stack
           PolicyDocument:
