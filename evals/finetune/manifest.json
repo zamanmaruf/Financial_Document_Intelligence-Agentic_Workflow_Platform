@@ -1,0 +1,193 @@
+{
+  "seed": 20261006,
+  "generator": "app/finetune/corpus.py",
+  "prompt": {
+    "name": "extraction.financial_entities",
+    "version": "1.2.0",
+    "hash": "0996c55c186e7cca"
+  },
+  "counts": {
+    "train": {
+      "income_statement": 40,
+      "balance_sheet": 40,
+      "invoice": 40,
+      "bank_statement": 40,
+      "fund_summary": 40
+    },
+    "validation": {
+      "income_statement": 8,
+      "balance_sheet": 8,
+      "invoice": 8,
+      "bank_statement": 8,
+      "fund_summary": 8
+    },
+    "test": {
+      "income_statement": 16,
+      "balance_sheet": 16,
+      "invoice": 16,
+      "bank_statement": 16,
+      "fund_summary": 16
+    }
+  },
+  "families": {
+    "train": [
+      "bank-f0",
+      "bank-f1",
+      "bank-f2",
+      "bank-f3",
+      "bs-f0",
+      "bs-f1",
+      "bs-f2",
+      "bs-f3",
+      "fund-f0",
+      "fund-f1",
+      "fund-f2",
+      "fund-f3",
+      "inv-f0",
+      "inv-f1",
+      "inv-f2",
+      "inv-f3",
+      "is-f0",
+      "is-f1",
+      "is-f2",
+      "is-f3"
+    ],
+    "validation": [
+      "bank-f4",
+      "bs-f4",
+      "fund-f4",
+      "inv-f4",
+      "is-f4"
+    ],
+    "test": [
+      "bank-f5",
+      "bank-f6",
+      "bs-f5",
+      "bs-f6",
+      "fund-f5",
+      "fund-f6",
+      "inv-f5",
+      "inv-f6",
+      "is-f5",
+      "is-f6"
+    ]
+  },
+  "name_stems": {
+    "train": [
+      "Alderbrook",
+      "Ashcombe",
+      "Basalt",
+      "Birchmont",
+      "Bram",
+      "Bramblewood",
+      "Calderwood",
+      "Cosima",
+      "Eastwick",
+      "Elodie",
+      "Everholt",
+      "Farrowdale",
+      "Fernhill",
+      "Foxglove",
+      "Galloway",
+      "Glenmoor",
+      "Greta",
+      "Halloway",
+      "Hawthorne",
+      "Inverly",
+      "Ironbark",
+      "Jessamine",
+      "Juniper",
+      "Larkspur",
+      "Linden",
+      "Lorenzo",
+      "Mireille",
+      "Moorcroft",
+      "Nettlebrook",
+      "Nikhil",
+      "Oakhaven",
+      "Odette",
+      "Orchardine",
+      "Pavel",
+      "Primrose",
+      "Quarrystone",
+      "Quinn",
+      "Rookwood",
+      "Saltmarsh",
+      "Tamarind",
+      "Thistledown",
+      "Umberfield",
+      "Underhill",
+      "Vesna",
+      "Westcott",
+      "Wrenfield",
+      "Yusuf",
+      "Zara",
+      "Zephyrine"
+    ],
+    "validation": [
+      "Amberly",
+      "Corrigan",
+      "Dmitri",
+      "Driftwood",
+      "Dunmore",
+      "Elmstead",
+      "Keira",
+      "Kingsmere",
+      "Pellucid",
+      "Redfern"
+    ],
+    "test": [
+      "Amara",
+      "Bastian",
+      "Brackley",
+      "Cedarline",
+      "Dovecote",
+      "Dunstable",
+      "Emberly",
+      "Fairhaven",
+      "Greywater",
+      "Hollowell",
+      "Jonas",
+      "Kestrel",
+      "Marlow",
+      "Norland",
+      "Quillon",
+      "Rosalind",
+      "Soren",
+      "Stonemere",
+      "Talia",
+      "Valemont",
+      "Verbena",
+      "Yarrow"
+    ]
+  },
+  "traits": {
+    "missing_optional": 70,
+    "distractor_numbers": 257,
+    "missing_currency": 11,
+    "expenses_negative": 28,
+    "net_loss": 10,
+    "comparative_columns": 18,
+    "prior_period_first": 10,
+    "distractor_date": 64,
+    "multi_page": 38,
+    "injection_note": 14
+  },
+  "files": {
+    "documents.jsonl": {
+      "sha256": "e931cd7ac1753f995dbb80b3e4c5647d013312baa68ee1480ac2e6c659ccdd35",
+      "lines": 320,
+      "bytes": 438802
+    },
+    "train.jsonl": {
+      "sha256": "3c98c8c1c28520639f1dfe627484249033f2672152d189c417797fa1ce44727f",
+      "lines": 200,
+      "bytes": 1012802
+    },
+    "validation.jsonl": {
+      "sha256": "838d9fb169c0e184373b1639843349c294083ca04f53f1751eefb2f664ad5457",
+      "lines": 40,
+      "bytes": 201106
+    }
+  }
+}

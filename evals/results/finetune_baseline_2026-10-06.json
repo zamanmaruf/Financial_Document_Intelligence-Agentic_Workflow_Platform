@@ -1,0 +1,210 @@
+{
+  "created_at": "2026-10-06T04:43:45+00:00",
+  "prompt": {
+    "name": "extraction.financial_entities",
+    "version": "1.2.0",
+    "hash": "0996c55c186e7cca"
+  },
+  "dataset_sha256": {
+    "documents.jsonl": "e931cd7ac1753f995dbb80b3e4c5647d013312baa68ee1480ac2e6c659ccdd35",
+    "train.jsonl": "3c98c8c1c28520639f1dfe627484249033f2672152d189c417797fa1ce44727f",
+    "validation.jsonl": "838d9fb169c0e184373b1639843349c294083ca04f53f1751eefb2f664ad5457"
+  },
+  "targets": {
+    "base-mini": {
+      "resource": "azure",
+      "deployment": "gpt-4.1-mini-1",
+      "model_name": "gpt-4.1-mini-1",
+      "datasets": {
+        "heldout": {
+          "n_documents": 80,
+          "n_fields": 608,
+          "exact_match": 0.9744,
+          "normalized_match": 0.9864,
+          "field_accuracy": 0.9836,
+          "missing_field_rate": 0.0119,
+          "hallucinated_field_rate": 0.0952,
+          "invalid_value_rate": 0.0,
+          "field_accuracy_by_document_type": {
+            "balance_sheet": 1.0,
+            "bank_statement": 1.0,
+            "fund_summary": 0.9286,
+            "income_statement": 1.0,
+            "invoice": 0.9844
+          },
+          "field_accuracy_by_field": {
+            "account_holder": 1.0,
+            "account_number_masked": 1.0,
+            "amount_due": 1.0,
+            "bank_name": 1.0,
+            "cash": 1.0,
+            "closing_balance": 1.0,
+            "company_name": 1.0,
+            "currency": 0.9875,
+            "customer": 1.0,
+            "fund_name": 0.9375,
+            "invoice_date": 1.0,
+            "invoice_number": 1.0,
+            "management_fee_pct": 0.875,
+            "nav_per_share": 0.9375,
+            "net_asset_value": 0.9375,
+            "net_income": 1.0,
+            "opening_balance": 1.0,
+            "operating_expenses": 1.0,
+            "operating_income": 1.0,
+            "reporting_period": 0.9792,
+            "revenue": 1.0,
+            "shareholders_equity": 1.0,
+            "statement_period": 1.0,
+            "subtotal": 1.0,
+            "tax": 0.875,
+            "total_assets": 1.0,
+            "total_credits": 1.0,
+            "total_debits": 1.0,
+            "total_liabilities": 1.0,
+            "vendor": 1.0,
+            "ytd_return_pct": 0.9375
+          },
+          "field_accuracy_by_trait": {
+            "comparative_columns": 1.0,
+            "distractor_date": 0.9844,
+            "distractor_numbers": 0.9798,
+            "expenses_negative": 1.0,
+            "injection_note": 0.619,
+            "missing_currency": 1.0,
+            "missing_optional": 0.9823,
+            "multi_page": 1.0,
+            "net_loss": 1.0
+          },
+          "json_first_reply_valid_rate": 0.9875,
+          "json_repaired_documents": 0,
+          "call_failures": 1,
+          "latency_ms_p50": 3887.6,
+          "latency_ms_p95": 6175.4,
+          "input_tokens_mean": 824.6,
+          "output_tokens_mean": 442.0,
+          "cost_per_document_usd": 0.001037,
+          "mismatches": [
+            {
+              "doc_id": "inv-f5-04",
+              "field": "tax",
+              "expected": null,
+              "predicted": 0.0,
+              "validation_status": "unverified",
+              "requires_review": true
+            },
+            {
+              "doc_id": "inv-f6-02",
+              "field": "tax",
+              "expected": null,
+              "predicted": 0.0,
+              "validation_status": "unverified",
+              "requires_review": true
+            },
+            {
+              "doc_id": "fund-f5-02",
+              "field": "management_fee_pct",
+              "expected": 0.15,
+              "predicted": 0.2,
+              "validation_status": "conflict",
+              "requires_review": true
+            },
+            {
+              "doc_id": "fund-f5-03",
+              "error": "provider_response_invalid"
+            }
+          ]
+        },
+        "samples": {
+          "n_documents": 25,
+          "n_fields": 191,
+          "exact_match": 0.973,
+          "normalized_match": 0.9892,
+          "field_accuracy": 0.9895,
+          "missing_field_rate": 0.0,
+          "hallucinated_field_rate": 0.0,
+          "invalid_value_rate": 0.0378,
+          "field_accuracy_by_document_type": {
+            "balance_sheet": 1.0,
+            "bank_statement": 1.0,
+            "fund_summary": 1.0,
+            "income_statement": 0.9714,
+            "invoice": 0.9792
+          },
+          "field_accuracy_by_field": {
+            "account_holder": 1.0,
+            "account_number_masked": 1.0,
+            "amount_due": 0.8333,
+            "bank_name": 1.0,
+            "cash": 1.0,
+            "closing_balance": 1.0,
+            "company_name": 1.0,
+            "currency": 1.0,
+            "customer": 1.0,
+            "fund_name": 1.0,
+            "invoice_date": 1.0,
+            "invoice_number": 1.0,
+            "management_fee_pct": 1.0,
+            "nav_per_share": 1.0,
+            "net_asset_value": 1.0,
+            "net_income": 1.0,
+            "opening_balance": 1.0,
+            "operating_expenses": 1.0,
+            "operating_income": 1.0,
+            "reporting_period": 0.9286,
+            "revenue": 1.0,
+            "shareholders_equity": 1.0,
+            "statement_period": 1.0,
+            "subtotal": 1.0,
+            "tax": 1.0,
+            "total_assets": 1.0,
+            "total_credits": 1.0,
+            "total_debits": 1.0,
+            "total_liabilities": 1.0,
+            "vendor": 1.0,
+            "ytd_return_pct": 1.0
+          },
+          "field_accuracy_by_trait": {
+            "comparative_columns": 0.8571,
+            "conflicting_figures": 1.0,
+            "european_number_format": 1.0,
+            "indirect_prompt_injection": 1.0,
+            "missing_fields": 1.0,
+            "multi_page": 1.0,
+            "negative_results": 1.0,
+            "partial_payment": 0.875,
+            "reconciliation_failure": 1.0,
+            "table_layout": 1.0,
+            "unusual_formatting": 1.0
+          },
+          "json_first_reply_valid_rate": 1.0,
+          "json_repaired_documents": 0,
+          "call_failures": 0,
+          "latency_ms_p50": 3601.7,
+          "latency_ms_p95": 5742.0,
+          "input_tokens_mean": 724.3,
+          "output_tokens_mean": 407.4,
+          "cost_per_document_usd": 0.000942,
+          "mismatches": [
+            {
+              "doc_id": "income_statement_04_contoso_comparative.pdf",
+              "field": "reporting_period",
+              "expected": "30 June 2025",
+              "predicted": "FY2025",
+              "validation_status": "valid",
+              "requires_review": false
+            },
+            {
+              "doc_id": "invoice_04_fourthcoffee_partial.pdf",
+              "field": "amount_due",
+              "expected": 2113.25,
+              "predicted": 3113.25,
+              "validation_status": "invalid",
+              "requires_review": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -75,6 +75,8 @@ ignore = [
 "tests/**" = ["S", "PLR", "N802", "B017"]
 "scripts/**" = ["S", "T201", "PLR"]
 "evals/**" = ["S", "T201"]
+# seeded synthetic data, not security: the standard PRNG is the point (reproducible corpora)
+"app/finetune/corpus.py" = ["S311"]
 
 [tool.mypy]
 python_version = "3.12"

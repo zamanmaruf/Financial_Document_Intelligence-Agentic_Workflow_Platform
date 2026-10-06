@@ -28,6 +28,16 @@ models:
   text-embedding-3-small:
     input_per_1k: 0.00002
     output_per_1k: 0.0
+  gpt-4.1-nano:
+    input_per_1k: 0.0001
+    output_per_1k: 0.0004
+  # Fine-tuned models are billed at a higher inference rate than their base model.
+  gpt-4.1-nano-ft:
+    input_per_1k: 0.0002
+    output_per_1k: 0.0008
+  gpt-4.1-mini-ft:
+    input_per_1k: 0.0008
+    output_per_1k: 0.0032
   mock-deterministic-v1:
     input_per_1k: 0.0
     output_per_1k: 0.0
@@ -37,3 +47,12 @@ aliases:
   gpt-4.1-mini-1: gpt-4.1-mini
   us.anthropic.claude-haiku-4-5-20251001-v1:0: anthropic.claude-haiku-4-5-20251001-v1:0
   global.anthropic.claude-haiku-4-5-20251001-v1:0: anthropic.claude-haiku-4-5-20251001-v1:0
+# USD per 1M training tokens (tokens in the training file x epochs), used by
+# scripts/finetune/azure_finetune.py to estimate a job before it is submitted. Illustrative:
+# check the Azure OpenAI price list for your region and training tier first. Hosting a
+# fine-tuned deployment can add an hourly charge depending on the deployment type.
+fine_tuning:
+  gpt-4.1-nano-2025-04-14:
+    training_per_1m: 1.5
+  gpt-4.1-mini-2025-04-14:
+    training_per_1m: 5.0

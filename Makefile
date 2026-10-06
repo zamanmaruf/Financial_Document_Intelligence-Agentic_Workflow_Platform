@@ -1,7 +1,7 @@
 .PHONY: install dev test test-unit test-integration test-e2e lint format typecheck eval gate \
         drift drift-baseline baseline data docker docker-run demo lock clean check \
         web web-dev web-check web-e2e demo-site deploy deploy-cd-bootstrap smoke-live ocr-compare \
-        judge-calibration
+        judge-calibration finetune-data
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -68,6 +68,10 @@ judge-calibration:
 
 data:
 	$(PY) scripts/generate_sample_data.py
+
+# Offline and deterministic; training and evaluation commands are in docs/fine-tuning-pathway.md
+finetune-data:
+	$(PY) scripts/finetune/build_dataset.py
 
 docker:
 	docker build -t $(IMAGE) .

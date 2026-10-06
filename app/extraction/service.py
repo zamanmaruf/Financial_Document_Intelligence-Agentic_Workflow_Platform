@@ -108,6 +108,19 @@ def _verify_evidence(
     return False, field.page_number
 
 
+def field_spec_text(specs: list[FieldSpec]) -> str:
+    """The ``field_spec`` prompt variable (also used to build fine-tuning records)."""
+    return "\n".join(
+        f"- {s.name} ({s.kind.value}{', required' if s.required else ''}): {s.description}"
+        for s in specs
+    )
+
+
+def pages_text(text: ExtractedText) -> str:
+    """The ``document_pages`` prompt variable."""
+    return "\n\n".join(f"[page {p.page_number}]\n{p.text}" for p in text.pages)
+
+
 class EntityExtractor:
     def __init__(
         self, gateway: ModelGateway, min_confidence: float, tolerance_ratio: float
@@ -115,17 +128,6 @@ class EntityExtractor:
         self._gateway = gateway
         self._min_confidence = min_confidence
         self._tolerance = tolerance_ratio
-
-    @staticmethod
-    def _field_spec_text(specs: list[FieldSpec]) -> str:
-        return "\n".join(
-            f"- {s.name} ({s.kind.value}{', required' if s.required else ''}): {s.description}"
-            for s in specs
-        )
-
-    @staticmethod
-    def _pages_text(text: ExtractedText) -> str:
-        return "\n\n".join(f"[page {p.page_number}]\n{p.text}" for p in text.pages)
 
     def extract(
         self,
@@ -141,8 +143,8 @@ class EntityExtractor:
             PROMPT_NAME,
             render_vars={
                 "document_type": document_type.value,
-                "field_spec": self._field_spec_text(specs),
-                "document_pages": self._pages_text(text),
+                "field_spec": field_spec_text(specs),
+                "document_pages": pages_text(text),
             },
             structured_vars={
                 "document_type": document_type.value,

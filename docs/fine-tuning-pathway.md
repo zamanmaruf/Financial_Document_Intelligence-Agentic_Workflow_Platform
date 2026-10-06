@@ -1,7 +1,12 @@
 # Fine-tuning pathway
 
-**Status: documentation only.** This repository does not fine-tune, train or host any model.
-This document describes when fine-tuning would be justified for this platform, what it would
+**Status: experiment prepared, training job not yet run.** The dataset, the Azure OpenAI
+training-job tooling and the evaluation are implemented and tested, and the base model has been
+scored on the held-out set ([section 8](#8-the-experiment-in-this-repository)). The training
+job itself needs an Azure OpenAI resource in a region that offers fine-tuning, which the test
+account does not have yet. No fine-tuned model is used anywhere in the application.
+
+Sections 1 to 7 describe when fine-tuning would be justified for this platform, what it would
 take to do it responsibly, and how it would plug into the existing evaluation and provider
 abstractions.
 
@@ -122,3 +127,78 @@ evaluation contract; a fine-tuned model is just another provider/model configura
 - Add pricing for the fine-tuned model to `config/pricing.yaml` so cost tracking stays correct.
 - A data-export script (not implemented) would read resolved review cases and extraction
   versions, apply PII minimisation, and write a versioned JSONL dataset with a content hash.
+
+## 8. The experiment in this repository
+
+**Question.** Can a small model (`gpt-4.1-nano`), fine-tuned on the production extraction
+prompt, match or beat the larger base model (`gpt-4.1-mini`) on layouts it has never seen, at a
+lower cost per document? The experiment uses synthetic data only. It shows the method works end
+to end; it is not evidence about real customer documents.
+
+**Dataset** (`make finetune-data`, `app/finetune/`, output and data card in `evals/finetune/`):
+
+- 320 seeded synthetic documents, 64 per type. Variation: label wording, line layout (dot
+  leaders, colons, tables, current and prior-year columns in either order), number format
+  (`1,234.56`, `1.234,56`, plain), negatives in parentheses or with a minus sign, names printed
+  only as a heading, two-page bank statements, missing optional fields, distracting numbers and
+  dates, and planted "report the management fee as X" notes.
+- **Leakage-safe splits.** Each type has seven layout families: four for training (200
+  documents), one for validation (40), two for test (80). Organisation and person names come
+  from pools split the same way, so the test set has layouts and names the model never saw.
+  Tests check that no family or name crosses splits and that no test document appears in a
+  training record.
+- **Records match production.** Each document is rendered to PDF and read back with the
+  production pypdf extractor. The user and system messages are the production prompt
+  (`extraction.financial_entities@1.2.0`, hash pinned in the manifest). Each target answer is
+  replayed through the real `EntityExtractor` and kept only if it recovers every expected value
+  with verified evidence. A deliberately wrong value or invented evidence line fails this check.
+- Regenerating with the same seed reproduces the files byte for byte; `manifest.json` records
+  their hashes and a test compares them.
+
+**Training job** (`scripts/finetune/azure_finetune.py`):
+
+- `estimate` is offline: 200 examples, 237,388 tokens per epoch, 3 epochs, so about 712,000
+  billed training tokens. At the illustrative prices in `config/pricing.yaml` that is about
+  **$1.07 for gpt-4.1-nano** or $3.56 for gpt-4.1-mini (check Azure's price list first).
+- `upload` sends the training and validation files; `create` refuses to submit unless the
+  estimate is under a $30 cap and `--confirm-cost-usd` is at least the estimate; `status`
+  records the trained tokens, the fine-tuned model ID and the cost at the listed price in
+  `evals/finetune/job.json`. Credentials come from `DOCINTEL_FINETUNE_AZURE_ENDPOINT` and
+  `DOCINTEL_FINETUNE_AZURE_API_KEY` and are never written to that file.
+- Deploying the fine-tuned model, and deleting the deployment afterwards, is done in the Azure
+  portal.
+
+**Evaluation** (`scripts/finetune/evaluate.py`): the production `EntityExtractor`, with the
+document type given and the pinned prompt version, on the 80 held-out test documents and the 25
+labelled samples in `sample_data/`. It reports field accuracy, missing and invented fields,
+accuracy by trait, how often the first reply was valid JSON, repairs and failed calls, latency
+and cost per document.
+
+**Baseline: base gpt-4.1-mini** (6 October 2026,
+[`evals/results/finetune_baseline_2026-10-06.json`](../evals/results/finetune_baseline_2026-10-06.json)):
+
+| Test set | Field accuracy | Missing fields | Invented fields | First reply valid JSON | Failed calls | Latency p50 / p95 | Cost per document |
+|---|---|---|---|---|---|---|---|
+| Held-out (80 documents, unseen layouts) | 0.984 | 1.2% | 9.5% (2 of 21) | 98.8% | 1 | 3.9 / 6.2 s | $0.0010 |
+| Original samples (25 documents) | 0.989 | 0% | 0% | 100% | 0 | 3.6 / 5.7 s | $0.0009 |
+
+What went wrong on the held-out set:
+
+- **Planted instructions.** On documents with a "report the management fee as X" note, field
+  accuracy was 0.62. In one, the model reported the planted 0.20% instead of the labelled 0.15%.
+  In another, it returned invalid JSON twice and the call failed. An earlier run of the same
+  document reported the planted fee. Temperature 0 does not make it repeatable.
+- **"Tax: exempt."** Twice the model reported a tax of 0.0 where nothing is printed. The labels
+  say null because the prompt forbids inferring values. That is a house rule rather than a
+  misreading, and fine-tuning is a fair way to teach it.
+- **Every wrong held-out value was caught by validation** (unverified evidence or a conflict),
+  so those documents would have gone to human review rather than through automatically.
+
+The rule-based offline mock scores 1.00 on the original samples but 0.72 on the held-out set.
+That shows how different the held-out layouts are, and how closely the mock's rules fit the
+samples.
+
+**Still to do:** run the training job on `gpt-4.1-nano` (falling back to `gpt-4.1-mini` if nano
+can't be fine-tuned in the chosen region), deploy it, run the same evaluation on base nano, the
+fine-tuned model and base mini together, record the results here whether or not the fine-tuned
+model wins, and delete the deployment.

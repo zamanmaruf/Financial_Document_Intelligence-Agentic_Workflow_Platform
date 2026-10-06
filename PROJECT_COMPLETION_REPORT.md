@@ -264,7 +264,8 @@ scheduled drift job or alerting; indicative pricing only; OCR has no table/layou
 
 ## 14. Features intentionally not implemented
 
-Asynchronous job queue and workers; fine-tuning (documentation only: `docs/fine-tuning-pathway.md`);
+Asynchronous job queue and workers; fine-tuning (dataset, job tooling and baseline evaluation since
+added, training job not yet run: `docs/fine-tuning-pathway.md` section 8);
 a full product front end (the `/ui` console is deliberately minimal: no page-image highlighting,
 saved views or multi-user features); multi-tenancy; SSO; retention endpoints; CD pipeline; distributed tracing; hybrid
 search and re-ranking; autonomous tool-using agents (by design, ADR-004).

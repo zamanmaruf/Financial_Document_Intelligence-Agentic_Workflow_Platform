@@ -85,7 +85,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | GitHub Actions CI/CD | **Implemented and in use**: CI (quality, web, browser e2e, infrastructure lint and Docker jobs) on every push and pull request; after CI passes on `main`, a deploy workflow waits for approval, signs in to AWS through OIDC (no stored keys), deploys and runs the live smoke tests |
 | Encryption at rest, TLS inside the app, SSO, tracing, WAF | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
 | LLM-as-judge evaluation (`EVAL_USE_LLM_JUDGE`, `EVAL_JUDGE_PROVIDER`) | **Implemented and verified live**: Claude's answers judged by gpt-4.1-mini against the full text of the cited chunks, and checked on deliberately corrupted answers ([results](#llm-as-judge-live-run-and-calibration)). Evaluation only, never in the request path |
-| Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
+| Fine-tuning (Azure OpenAI, extraction) | **Prepared, training job not yet run**: 320-document synthetic dataset with layout- and name-separated splits (every record checked by the production extractor), cost-capped Azure job tooling, and an evaluation that has scored base gpt-4.1-mini on the held-out set. Training needs an Azure resource in a fine-tuning region ([details](docs/fine-tuning-pathway.md#8-the-experiment-in-this-repository)) |
 
 ---
 
@@ -604,6 +604,7 @@ The container runs as a non-root user with a read-only root filesystem, a tmpfs 
 | `make deploy` | build, push and deploy the public demo to AWS ([runbook](deploy/aws/RUNBOOK.md)) |
 | `make smoke-live` | smoke tests against the deployed site with live AI, then read-only AWS checks |
 | `make judge-calibration` | check that the LLM judge flags deliberately broken answers, next to the lexical check |
+| `make finetune-data` | rebuild the extraction fine-tuning dataset in `evals/finetune/` ([fine-tuning](docs/fine-tuning-pathway.md#8-the-experiment-in-this-repository)) |
 | `make ocr-compare` | score OCR engines on the scanned samples (`OCR_ENGINES=tesseract,bedrock_vision,azure_vision` for the cloud engines) |
 
 ### Configuration reference
