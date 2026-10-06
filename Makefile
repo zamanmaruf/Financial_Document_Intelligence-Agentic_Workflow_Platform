@@ -1,6 +1,6 @@
 .PHONY: install dev test test-unit test-integration test-e2e lint format typecheck eval gate \
         drift drift-baseline baseline data docker docker-run demo lock clean check \
-        web web-dev web-check web-e2e demo-site deploy deploy-cd-bootstrap smoke-live
+        web web-dev web-check web-e2e demo-site deploy deploy-cd-bootstrap smoke-live ocr-compare
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -55,6 +55,11 @@ drift:
 
 drift-baseline:
 	$(PY) scripts/drift_report.py --save-baseline
+
+# Cloud engines need credentials: OCR_ENGINES=tesseract,bedrock_vision,azure_vision
+OCR_ENGINES ?= tesseract
+ocr-compare:
+	$(PY) scripts/ocr_compare.py --engines $(OCR_ENGINES) --output reports/ocr_compare.json
 
 data:
 	$(PY) scripts/generate_sample_data.py

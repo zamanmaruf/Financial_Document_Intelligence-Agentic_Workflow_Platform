@@ -11,11 +11,12 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -34,6 +35,19 @@ class Doc:
     notes: str | None = None
     kind: str = "text"  # text | scanned | malformed | empty
     include_in_eval: bool = True
+    # Scanned documents only: harder scans for the OCR comparison (scripts/ocr_compare.py).
+    scan: ScanStyle | None = None
+
+
+@dataclass(frozen=True)
+class ScanStyle:
+    font_size: int = 34
+    line_step: int = 56
+    skew_deg: float = 0.4
+    speckle: int = 0  # number of random dark specks
+    blur: float = 0.0  # Gaussian blur radius, like a slightly out-of-focus scan
+    contrast: int = 20  # ink grey level (0 black - 255 white)
+    seed: int = 0
 
 
 def L(label: str, value: str, width: int = 34) -> str:  # noqa: N802 - tiny DSL helper
@@ -1027,6 +1041,95 @@ DOCS: list[Doc] = [
         include_in_eval=False,
     ),
     Doc(
+        file="edge_scanned_bank_statement.pdf",
+        document_type="bank_statement",
+        pages=[
+            [
+                "BLUE RIDGE SAVINGS BANK",
+                "MONTHLY ACCOUNT STATEMENT",
+                "",
+                "Bank: Blue Ridge Savings Bank",
+                "Account Holder: Tailspin Outdoor Supply LLC",
+                "Account Number: 6650 2214 7789 3016",
+                "Statement Period: 01 May 2025 - 31 May 2025",
+                "Currency: USD",
+                "",
+                "Opening Balance: 93,417.68",
+                "Total Credits: 61,239.40",
+                "Total Debits: 78,506.15",
+                "Closing Balance: 76,150.93",
+                "",
+                "Date        Description                     Amount",
+                "2025-05-02  Deposit - Lakeside Retail       18,640.00",
+                "2025-05-07  ACH Payroll                    -41,385.27",
+                "2025-05-14  Card settlement                 42,599.40",
+                "2025-05-21  Rent - Pine St warehouse       -12,800.00",
+                "2025-05-28  Supplier - Coho Textiles       -24,320.88",
+            ]
+        ],
+        expected_fields={
+            "bank_name": "Blue Ridge Savings Bank",
+            "account_holder": "Tailspin Outdoor Supply LLC",
+            "account_number_masked": "****3016",
+            "statement_period": "01 May 2025 - 31 May 2025",
+            "currency": "USD",
+            "opening_balance": 93417.68,
+            "total_credits": 61239.4,
+            "total_debits": 78506.15,
+            "closing_balance": 76150.93,
+        },
+        expected_outcome="NEEDS_REVIEW",
+        edge_case="scanned_document",
+        notes="Noisy, skewed, smaller-type scan with a transaction table (OCR comparison).",
+        kind="scanned",
+        include_in_eval=False,
+        scan=ScanStyle(
+            font_size=27, line_step=46, skew_deg=1.1, speckle=900, blur=0.8, contrast=70, seed=7
+        ),
+    ),
+    Doc(
+        file="edge_scanned_fund_summary.pdf",
+        document_type="fund_summary",
+        pages=[
+            [
+                "WOODGROVE INCOME OPPORTUNITIES FUND",
+                "QUARTERLY FUND SUMMARY",
+                "",
+                "Fund name: Woodgrove Income Opportunities Fund",
+                "As of: 30 June 2025",
+                "Base currency: EUR",
+                "Fund manager: Woodgrove Capital Partners",
+                "",
+                "Total net asset value: 386,920,500",
+                "NAV per share: 13.06",
+                "YTD return: 4.7%",
+                "Benchmark return YTD: 3.9% (Bloomberg Euro Agg)",
+                "Management fee: 0.55%",
+                "Ongoing charges: 0.68%",
+                "",
+                "Asset allocation: bonds 81%, loans 12%, cash 7%",
+                "Distribution yield: 5.15%  Duration: 3.8 years",
+            ]
+        ],
+        expected_fields={
+            "fund_name": "Woodgrove Income Opportunities Fund",
+            "reporting_period": "30 June 2025",
+            "currency": "EUR",
+            "net_asset_value": 386920500.0,
+            "nav_per_share": 13.06,
+            "ytd_return_pct": 4.7,
+            "management_fee_pct": 0.55,
+        },
+        expected_outcome="NEEDS_REVIEW",
+        edge_case="scanned_document",
+        notes="Faded, blurred scan with many percentages (OCR comparison).",
+        kind="scanned",
+        include_in_eval=False,
+        scan=ScanStyle(
+            font_size=29, line_step=50, skew_deg=-0.8, speckle=500, blur=1.1, contrast=95, seed=11
+        ),
+    ),
+    Doc(
         file="edge_empty.pdf",
         document_type="unknown",
         pages=[[]],
@@ -1064,19 +1167,27 @@ def render_text_pdf(pages: list[list[str]]) -> bytes:
     return buf.getvalue()
 
 
-def render_scanned_pdf(pages: list[list[str]]) -> bytes:
+def render_scanned_pdf(pages: list[list[str]], style: ScanStyle | None = None) -> bytes:
+    style = style or ScanStyle()
+    rng = random.Random(style.seed)
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4, invariant=True)
     width, height = A4
     for lines in pages:
         img = Image.new("L", (1654, 2339), color=250)  # A4 @ 200 dpi, off-white paper
         draw = ImageDraw.Draw(img)
-        font = ImageFont.load_default(size=34)
+        font = ImageFont.load_default(size=style.font_size)
         y = 160
         for line in lines:
-            draw.text((140, y), line, fill=20, font=font)
-            y += 56
-        img = img.rotate(0.4, fillcolor=250)  # slight skew like a real scan
+            draw.text((140, y), line, fill=style.contrast, font=font)
+            y += style.line_step
+        for _ in range(style.speckle):
+            x0, y0 = rng.randrange(img.width), rng.randrange(img.height)
+            r = rng.choice((1, 1, 1, 2))
+            draw.ellipse((x0, y0, x0 + r, y0 + r), fill=rng.randrange(60, 200))
+        img = img.rotate(style.skew_deg, fillcolor=250)  # skew like a real scan
+        if style.blur:
+            img = img.filter(ImageFilter.GaussianBlur(style.blur))
         c.drawImage(ImageReader(img), 0, 0, width=width, height=height)
         c.showPage()
     c.save()
@@ -1085,7 +1196,7 @@ def render_scanned_pdf(pages: list[list[str]]) -> bytes:
 
 def build(doc: Doc) -> bytes:
     if doc.kind == "scanned":
-        return render_scanned_pdf(doc.pages)
+        return render_scanned_pdf(doc.pages, doc.scan)
     if doc.kind == "empty":
         return render_text_pdf([[]])
     data = render_text_pdf(doc.pages)

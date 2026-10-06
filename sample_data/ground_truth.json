@@ -507,6 +507,44 @@
       "include_in_eval": false
     },
     {
+      "file": "edge_scanned_bank_statement.pdf",
+      "document_type": "bank_statement",
+      "expected_fields": {
+        "bank_name": "Blue Ridge Savings Bank",
+        "account_holder": "Tailspin Outdoor Supply LLC",
+        "account_number_masked": "****3016",
+        "statement_period": "01 May 2025 - 31 May 2025",
+        "currency": "USD",
+        "opening_balance": 93417.68,
+        "total_credits": 61239.4,
+        "total_debits": 78506.15,
+        "closing_balance": 76150.93
+      },
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "scanned_document",
+      "notes": "Noisy, skewed, smaller-type scan with a transaction table (OCR comparison).",
+      "kind": "scanned",
+      "include_in_eval": false
+    },
+    {
+      "file": "edge_scanned_fund_summary.pdf",
+      "document_type": "fund_summary",
+      "expected_fields": {
+        "fund_name": "Woodgrove Income Opportunities Fund",
+        "reporting_period": "30 June 2025",
+        "currency": "EUR",
+        "net_asset_value": 386920500.0,
+        "nav_per_share": 13.06,
+        "ytd_return_pct": 4.7,
+        "management_fee_pct": 0.55
+      },
+      "expected_outcome": "NEEDS_REVIEW",
+      "edge_case": "scanned_document",
+      "notes": "Faded, blurred scan with many percentages (OCR comparison).",
+      "kind": "scanned",
+      "include_in_eval": false
+    },
+    {
       "file": "edge_empty.pdf",
       "document_type": "unknown",
       "expected_fields": {},

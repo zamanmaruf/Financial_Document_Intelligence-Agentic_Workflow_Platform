@@ -54,6 +54,15 @@ pipeline's rule that the model proposes and deterministic code decides.
 | Trust the vision transcription without a second reader | a confident misread digit is the failure that matters most in financial documents; the cross-check is cheap when Tesseract is already installed |
 | Textract only | not available on the test account; it remains an option behind the same interface |
 
+## Results
+
+On three synthetic scans (one clean, two with specks, blur, faded ink and skew), Claude Haiku
+4.5 on Bedrock and gpt-4.1-mini on Azure both transcribed every page exactly; Tesseract had a
+mean character error rate of 0.104 and invented two numbers from noise. Through the full live
+pipeline, all expected fields were extracted from the two noisy scans with either engine. Full
+numbers and caveats are in the README's "OCR comparison" section; three synthetic pages are not
+evidence of accuracy on real scans.
+
 ## Consequences
 
 - The click-to-locate boxes on scanned pages still come from Tesseract ([ADR-012](ADR-012-design-system-and-document-viewer.md)),

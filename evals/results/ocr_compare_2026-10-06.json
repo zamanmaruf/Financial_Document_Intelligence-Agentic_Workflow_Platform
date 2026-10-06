@@ -1,0 +1,243 @@
+{
+  "created_at": "2026-10-06T04:06:14+00:00",
+  "files": [
+    "edge_scanned_invoice.pdf",
+    "edge_scanned_bank_statement.pdf",
+    "edge_scanned_fund_summary.pdf"
+  ],
+  "results": [
+    {
+      "engine": "tesseract",
+      "model": "tesseract",
+      "documents": [
+        {
+          "file": "edge_scanned_invoice.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 7,
+          "numbers_read_exactly": 7,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 8,
+          "fields_found": 8,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 321.6,
+          "model_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0,
+          "text": "LITWARE PRINTING CO\nINVOICE\nInvoice Number: LP-5520\nInvoice Date: 2025-04-09\nVendor: Litware Printing Co\nBill To: Northwind Traders Inc.\nCurrency: USD\nSubtotal: 2,600.00\nTax: 208.00\nAmount Due: 2,808.00"
+        },
+        {
+          "file": "edge_scanned_bank_statement.pdf",
+          "error": null,
+          "cer": 0.232,
+          "numbers_total": 22,
+          "numbers_read_exactly": 22,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [
+            "25",
+            "3"
+          ],
+          "fields_total": 9,
+          "fields_found": 8,
+          "field_recall": 0.8888888888888888,
+          "fields_missing": [
+            "account_holder"
+          ],
+          "latency_ms": 538.2,
+          "model_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0,
+          "text": "BLUE RIDGE SAVINGS BANK . . 7 .\nMONTHLY ACCOUNT STATEMENT \u2018\nBank: Blue Ridge Savings Bank 3 . . - .\nAccount Holder: Tailspin Outdoor SupplyLLC . .\u00b0 7 .\nAccount Number: 6650 2214 7789 3016 a Se a\n-Statement Period: 01 May 2025 - 31 May 2025\nCurrency: USD ae |\nOpening Balance! 93,417.68 - : a SO\n- \u2018Total Cfedits:61,239.40 . Oo . .\nTotal Debits: 78,506.15 . > . |\nClosing Balance: 76,150.93 . oo .\nDate Description ~ Amount coe, a\n0025-05-02 Deposit - Lakeside Retail 18,640.00 |\n~ 2025-05-07 ACH Payroll -41,385.27 \u2014 . st\n2025-05-14 Cardsettlement - 42,599.40 an - |\n2025-05-21 Rent- Pine St warehouse \u2014_-12,800.00 . _*\n. 2025-05-28 Supplier-Coho Textiles -24,320.88 - \u2014"
+        },
+        {
+          "file": "edge_scanned_fund_summary.pdf",
+          "error": null,
+          "cer": 0.0787,
+          "numbers_total": 13,
+          "numbers_read_exactly": 13,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 7,
+          "fields_found": 7,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 460.6,
+          "model_calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0,
+          "text": "| WOODGROVE INCOME OPPORTUNITIES FUND . \u2014\u2014\n_QUARTERLY FUND SUMMARY a |\nFund name: Woodgrove Income Opportunities Fund ;\nAs of: 30 June 2025\nBase currency: EUR a\nFund manager: Woodgrove Capital Partners is\nTotal net asset value: 386,920,500 .\nNAV per share: 13.06 ; oo\nYTD return: 4.7%\nBenchmark return YTD: 3.9% (Bloomberg Euro Agg)\nManagement fee: 0.55% .\nOngoing charges: 0.68% oe |\nAsset allocation: bonds 81%, loans 12%, cash 7%\nDistribution yield: 5.15% Duration: 3.8 years ."
+        }
+      ],
+      "summary": {
+        "documents": 3,
+        "errors": 0,
+        "mean_cer": 0.1036,
+        "number_recall": 1.0,
+        "spurious_numbers": 2,
+        "field_recall": 0.9583,
+        "mean_latency_ms": 440,
+        "total_cost_usd": 0.0
+      }
+    },
+    {
+      "engine": "bedrock_vision",
+      "model": "bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "documents": [
+        {
+          "file": "edge_scanned_invoice.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 7,
+          "numbers_read_exactly": 7,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 8,
+          "fields_found": 8,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 3312.8,
+          "model_calls": 1,
+          "input_tokens": 1778,
+          "output_tokens": 131,
+          "cost_usd": 0.002433,
+          "text": "LITWARE PRINTING CO\nINVOICE\nInvoice Number: LP-5520\nInvoice Date: 2025-04-09\nVendor: Litware Printing Co\nBill To: Northwind Traders Inc.\nCurrency: USD\nSubtotal: 2,600.00\nTax: 208.00\nAmount Due: 2,808.00"
+        },
+        {
+          "file": "edge_scanned_bank_statement.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 22,
+          "numbers_read_exactly": 22,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 9,
+          "fields_found": 9,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 3678.5,
+          "model_calls": 1,
+          "input_tokens": 1778,
+          "output_tokens": 295,
+          "cost_usd": 0.003253,
+          "text": "BLUE RIDGE SAVINGS BANK\nMONTHLY ACCOUNT STATEMENT\nBank: Blue Ridge Savings Bank\nAccount Holder: Tailspin Outdoor Supply LLC\nAccount Number: 6650 2214 7789 3016\nStatement Period: 01 May 2025 - 31 May 2025\nCurrency: USD\nOpening Balance: 93,417.68\nTotal Credits: 61,239.40\nTotal Debits: 78,506.15\nClosing Balance: 76,150.93\nDate Description Amount\n2025-05-02 Deposit - Lakeside Retail 18,640.00\n2025-05-07 ACH Payroll -41,385.27\n2025-05-14 Card settlement 42,599.40\n2025-05-21 Rent - Pine St warehouse -12,800.00\n2025-05-28 Supplier - Coho Textiles -24,320.88"
+        },
+        {
+          "file": "edge_scanned_fund_summary.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 13,
+          "numbers_read_exactly": 13,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 7,
+          "fields_found": 7,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 2828.2,
+          "model_calls": 1,
+          "input_tokens": 1778,
+          "output_tokens": 223,
+          "cost_usd": 0.002893,
+          "text": "WOODGROVE INCOME OPPORTUNITIES FUND\nQUARTERLY FUND SUMMARY\nFund name: Woodgrove Income Opportunities Fund\nAs of: 30 June 2025\nBase currency: EUR\nFund manager: Woodgrove Capital Partners\nTotal net asset value: 386,920,500\nNAV per share: 13.06\nYTD return: 4.7%\nBenchmark return YTD: 3.9% (Bloomberg Euro Agg)\nManagement fee: 0.55%\nOngoing charges: 0.68%\nAsset allocation: bonds 81%, loans 12%, cash 7%\nDistribution yield: 5.15%  Duration: 3.8 years"
+        }
+      ],
+      "summary": {
+        "documents": 3,
+        "errors": 0,
+        "mean_cer": 0.0,
+        "number_recall": 1.0,
+        "spurious_numbers": 0,
+        "field_recall": 1.0,
+        "mean_latency_ms": 3273,
+        "total_cost_usd": 0.008579
+      }
+    },
+    {
+      "engine": "azure_vision",
+      "model": "azure_openai:gpt-4.1-mini-1",
+      "documents": [
+        {
+          "file": "edge_scanned_invoice.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 7,
+          "numbers_read_exactly": 7,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 8,
+          "fields_found": 8,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 2919.6,
+          "model_calls": 1,
+          "input_tokens": 1530,
+          "output_tokens": 88,
+          "cost_usd": 0.000753,
+          "text": "LITWARE PRINTING CO\nINVOICE\nInvoice Number: LP-5520\nInvoice Date: 2025-04-09\nVendor: Litware Printing Co\nBill To: Northwind Traders Inc.\nCurrency: USD\nSubtotal: 2,600.00\nTax: 208.00\nAmount Due: 2,808.00"
+        },
+        {
+          "file": "edge_scanned_bank_statement.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 22,
+          "numbers_read_exactly": 22,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 9,
+          "fields_found": 9,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 3401.8,
+          "model_calls": 1,
+          "input_tokens": 1530,
+          "output_tokens": 217,
+          "cost_usd": 0.000959,
+          "text": "BLUE RIDGE SAVINGS BANK\nMONTHLY ACCOUNT STATEMENT\nBank: Blue Ridge Savings Bank\nAccount Holder: Tailspin Outdoor Supply LLC\nAccount Number: 6650 2214 7789 3016\nStatement Period: 01 May 2025 - 31 May 2025\nCurrency: USD\nOpening Balance: 93,417.68\nTotal Credits: 61,239.40\nTotal Debits: 78,506.15\nClosing Balance: 76,150.93\nDate Description Amount\n2025-05-02 Deposit - Lakeside Retail 18,640.00\n2025-05-07 ACH Payroll -41,385.27\n2025-05-14 Card settlement 42,599.40\n2025-05-21 Rent - Pine St warehouse -12,800.00\n2025-05-28 Supplier - Coho Textiles -24,320.88"
+        },
+        {
+          "file": "edge_scanned_fund_summary.pdf",
+          "error": null,
+          "cer": 0.0,
+          "numbers_total": 13,
+          "numbers_read_exactly": 13,
+          "number_recall": 1.0,
+          "missed_numbers": [],
+          "spurious_numbers": [],
+          "fields_total": 7,
+          "fields_found": 7,
+          "field_recall": 1.0,
+          "fields_missing": [],
+          "latency_ms": 2944.3,
+          "model_calls": 1,
+          "input_tokens": 1530,
+          "output_tokens": 165,
+          "cost_usd": 0.000876,
+          "text": "WOODGROVE INCOME OPPORTUNITIES FUND\nQUARTERLY FUND SUMMARY\nFund name: Woodgrove Income Opportunities Fund\nAs of: 30 June 2025\nBase currency: EUR\nFund manager: Woodgrove Capital Partners\nTotal net asset value: 386,920,500\nNAV per share: 13.06\nYTD return: 4.7%\nBenchmark return YTD: 3.9% (Bloomberg Euro Agg)\nManagement fee: 0.55%\nOngoing charges: 0.68%\nAsset allocation: bonds 81%, loans 12%, cash 7%\nDistribution yield: 5.15% Duration: 3.8 years"
+        }
+      ],
+      "summary": {
+        "documents": 3,
+        "errors": 0,
+        "mean_cer": 0.0,
+        "number_recall": 1.0,
+        "spurious_numbers": 0,
+        "field_recall": 1.0,
+        "mean_latency_ms": 3089,
+        "total_cost_usd": 0.002588
+      }
+    }
+  ]
+}
