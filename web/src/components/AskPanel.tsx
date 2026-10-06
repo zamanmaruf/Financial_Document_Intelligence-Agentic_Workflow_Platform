@@ -47,9 +47,11 @@ function AnswerCard({
         {refused ? (
           <p className="text-sm text-ink-muted">
             It refused rather than guess
-            {answer.refusal_reason === "insufficient evidence"
-              ? ": the document doesn't contain this information."
-              : "."}
+            {answer.refusal_reason !== "insufficient evidence"
+              ? "."
+              : answer.is_mock
+                ? ": no passage in the document matched the question closely enough. The offline engine matches words, so using the document's own labels (such as “vendor” or “amount due”) can help."
+                : ": no passage in the document supports an answer."}
             {answer.requires_review && " The question was also logged for a person to look at."}
           </p>
         ) : (

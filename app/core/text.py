@@ -170,16 +170,25 @@ def _stem(token: str) -> str:
     return token
 
 
+def _normalize_token(raw: str) -> str:
+    norm = normalize_number(raw) if raw[0].isdigit() else None
+    return norm if norm is not None else _stem(raw.rstrip("%"))
+
+
 def tokenize(text: str) -> list[str]:
-    tokens: list[str] = []
-    for raw in _TOKEN_RE.findall(text.lower()):
-        norm = normalize_number(raw) if raw[0].isdigit() else None
-        tokens.append(norm if norm is not None else _stem(raw.rstrip("%")))
-    return tokens
+    return [_normalize_token(raw) for raw in _TOKEN_RE.findall(text.lower())]
 
 
 def content_tokens(text: str) -> list[str]:
-    return [t for t in tokenize(text) if t not in STOPWORDS and len(t) > 1]
+    # Stopwords are matched before stemming: "this" would otherwise become "thi" and survive.
+    out: list[str] = []
+    for raw in _TOKEN_RE.findall(text.lower()):
+        if raw in STOPWORDS:
+            continue
+        token = _normalize_token(raw)
+        if token not in STOPWORDS and len(token) > 1:
+            out.append(token)
+    return out
 
 
 def split_sentences(text: str) -> list[str]:

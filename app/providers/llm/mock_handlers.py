@@ -246,6 +246,19 @@ def _infer_currency(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 INSUFFICIENT_ANSWER = "The provided documents do not contain enough information to answer this."
 MIN_COVERAGE = 0.5
 
+# Everyday question words and the labels financial documents print instead ("Who sent this
+# invoice?" is answered by the "Vendor:" line). A question word counts as covered by a sentence
+# containing the word itself or any of its labels.
+_PARTY_FROM = ("vendor", "supplier", "seller", "issuer")
+_PARTY_TO = ("customer", "bill", "billed", "buyer", "client")
+_OWED = ("due", "amount", "total", "payable", "balance")
+QUESTION_ALIASES: dict[str, tuple[str, ...]] = {
+    **dict.fromkeys(("sent", "sender", "issued", "supplier", "seller", "vendor"), _PARTY_FROM),
+    **dict.fromkeys(("billed", "customer", "buyer", "client", "recipient", "addressed"), _PARTY_TO),
+    **dict.fromkeys(("owe", "owed", "owing", "pay", "payable"), _OWED),
+    **dict.fromkeys(("vat", "gst"), ("tax", "vat", "gst")),
+}
+
 
 def rag_answer_handler(variables: dict[str, Any]) -> dict[str, Any]:
     """Pick the single context sentence that best covers the question.
@@ -255,7 +268,26 @@ def rag_answer_handler(variables: dict[str, Any]) -> dict[str, Any]:
     sentences that contain a figure and against all-caps title lines. Coverage below half of the
     question weight is reported as insufficient evidence.
     """
-    question_tokens = set(content_tokens(str(variables.get("question", ""))))
+    question = str(variables.get("question", ""))
+    question_tokens = set(content_tokens(question))
+    groups = {t: frozenset((t, *QUESTION_ALIASES.get(t, ()))) for t in question_tokens}
+    # Question words are stopwords, but some say what kind of line answers them.
+    words = set(re.findall(r"[a-z]+", question.lower()))
+    if "to" in words and "sent" in question_tokens:  # "sent to" is the recipient
+        groups["sent"] = frozenset(("sent", *_PARTY_TO))
+    if question_tokens and "when" in words:
+        for t in question_tokens & {"sent", "issued"}:  # "when was it issued": the invoice date
+            groups[t] = frozenset((t, "invoice", "issue", "dated"))
+        question_tokens.add("date")
+        groups["date"] = frozenset(("date", "dated"))
+    if (
+        question_tokens
+        and "who" in words
+        and words & {"for", "to"}
+        and not any(groups[t] & set(_PARTY_FROM) for t in question_tokens)
+    ):
+        question_tokens.add("customer")
+        groups["customer"] = frozenset(_PARTY_TO)
     chunks: list[dict[str, Any]] = list(variables.get("context_chunks", []))
     candidates: list[tuple[str, str, set[str]]] = []  # (sentence, chunk_id, tokens)
     for chunk in chunks:
@@ -267,14 +299,18 @@ def rag_answer_handler(variables: dict[str, Any]) -> dict[str, Any]:
     if not candidates or not question_tokens:
         return {"answer": INSUFFICIENT_ANSWER, "cited_chunk_ids": [], "insufficient_evidence": True}
 
+    # Labels stand in for a question word only when the document never uses the word itself.
+    seen = set().union(*(toks for _, _, toks in candidates))
+    groups = {t: frozenset((t,)) if t in seen else g for t, g in groups.items()}
     n = len(candidates)
-    df = {t: sum(1 for _, _, toks in candidates if t in toks) for t in question_tokens}
+    df = {t: sum(1 for _, _, toks in candidates if groups[t] & toks) for t in question_tokens}
     weight = {t: math.log(1 + n / df[t]) if df[t] else math.log(1 + n) for t in question_tokens}
     total_weight = sum(weight.values())
 
     best: tuple[float, int, str, str] | None = None  # (score, -order, sentence, chunk_id)
     for order, (sentence, chunk_id, tokens) in enumerate(candidates):
-        coverage = sum(weight[t] for t in question_tokens & tokens) / total_weight
+        covered = (t for t in question_tokens if groups[t] & tokens)
+        coverage = sum(weight[t] for t in covered) / total_weight
         if coverage < MIN_COVERAGE:
             continue
         # financial questions usually ask for a figure; all-caps title lines are rarely answers

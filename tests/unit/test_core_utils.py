@@ -88,6 +88,8 @@ class TestNumberNormalization:
         tokens = content_tokens("What is the total amount due?")
         assert "the" not in tokens
         assert "amount" in tokens
+        # stopwords are dropped before stemming, so "this" doesn't survive as "thi"
+        assert content_tokens("Who sent this invoice? Does it say?") == ["sent", "invoice", "say"]
 
 
 class TestResilience:
