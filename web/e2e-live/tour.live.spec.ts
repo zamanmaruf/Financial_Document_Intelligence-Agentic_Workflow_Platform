@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { expect, test, type Page } from "@playwright/test";
 
 // The full guided tour against real Claude: 3 documents and 2 questions, about $0.02.
@@ -66,4 +68,24 @@ test("the guided tour runs end to end on live AI", async ({ page }) => {
   // 8. Wrap-up, still on live AI.
   await expect(page.getByRole("link", { name: "Try your own document" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Live AI" })).toBeVisible();
+});
+
+test("a scanned upload is read with OCR and its values are boxed on the page", async ({ page }) => {
+  // One upload, about $0.01. The page has no text layer, so boxes come from text recognition.
+  const scanned = resolve(import.meta.dirname, "../../sample_data/pdfs/edge_scanned_invoice.pdf");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/try");
+  const located = page.waitForResponse(
+    (r) => r.url().includes("/locate") && r.request().method() === "POST",
+    { timeout: 120_000 },
+  );
+  await page.locator('input[type="file"]').setInputFiles(scanned);
+  await expect(page.getByRole("tab", { name: /Results/ })).toBeVisible({ timeout: 120_000 });
+  const body = (await (await located).json()) as {
+    positions: string;
+    results: { matches: { rects: unknown[] }[] }[];
+  };
+  expect(body.positions).toBe("ocr");
+  expect(body.results.some((r) => r.matches.some((m) => m.rects.length > 0))).toBe(true);
+  await expect(page.getByText("Boxes on scanned pages come from text recognition")).toBeVisible();
 });

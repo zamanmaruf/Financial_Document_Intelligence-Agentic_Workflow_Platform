@@ -38,13 +38,25 @@ access and reduced-motion support.
 - `POST /documents/{id}/locate` takes up to 50 snippets (500 characters each) and returns boxes,
   normalised to 0..1 of the page, for each one. It tries an exact search on the page's text
   layer, then a folded search (case, whitespace, quotes and dashes normalised) that maps back to
-  the original character positions. No AI is involved.
+  the original character positions. No AI is involved. The response's `positions` says where
+  the boxes came from: `text_layer`, `ocr` or `none`.
+- Scanned pages have no text layer. When Tesseract is configured (`DOCINTEL_OCR_PROVIDER` of
+  `tesseract`, or `auto` with the binary installed, as in the Docker image), locate recognises
+  the cached page render with `image_to_data`, joins the words into page text with a map back to
+  each word, runs the same search, and unions the matched word boxes per printed line. The words
+  are cached per page (64 pages) and dropped with the renders on purge. OCR runs outside the
+  PDFium lock; a page takes roughly half a second the first time and about a millisecond after.
 - Both endpoints use the same workspace scoping as the rest of the API: another visitor's
   document is a 404. PDFium isn't thread-safe, so a single lock serialises calls into it.
 - The front end (`web/src/components/viewer/`) draws the boxes over the image, with a label chip,
-  a keyboard-navigable list of everything boxed, page switching and zoom. Fields, answer sources,
+  a keyboard-navigable list of everything boxed, page switching and zoom (up to 3x). "Zoom to the
+  selected box" (or double-clicking a box) sizes the box to about half the visible width and
+  centres it. "Expand" opens the same viewer in a full-screen Radix dialog with the same
+  selection; Esc closes it and focus goes back to where it was. Below the `lg` breakpoint,
+  "show it on the page" opens that dialog already zoomed to the box. Labels sit beside a box when
+  its line has room, under a multi-line passage, and otherwise above. Fields, answer sources,
   conflicting values and the injection excerpt all link to it. The viewer is lazy-loaded (about
-  10 kB) so it doesn't add to the landing page.
+  17 kB gzipped) so it doesn't add to the landing page.
 
 ### Landing page without API calls
 
@@ -65,15 +77,20 @@ session and costs nothing to view.
 
 ## Consequences
 
-- **Scanned pages show without boxes.** OCR text has no positions in the PDF's text layer, so
-  locate returns nothing for those pages and the viewer says "Highlighting isn't available for
-  scanned pages". Adding positions from OCR output is possible later.
+- **Boxes on scanned pages are approximate.** They come from Tesseract's word boxes, so they
+  can be slightly off, and a match inside a word boxes the whole word. The viewer says "Boxes on
+  scanned pages come from text recognition and may be slightly off". Where OCR isn't configured,
+  scanned pages show without boxes and the viewer says "Highlighting isn't available for scanned
+  pages". Textract OCR is used for extraction only; it doesn't provide viewer positions.
+- **Page images aren't cached by the CDN.** They are private to a visitor's session (the cookie
+  decides who may see them), so they are served with `Cache-Control: private` and CloudFront
+  passes them through. That is intended, not a missed optimisation; the browser still caches them.
 - **Boxes depend on the quote being findable.** If the model's quote differs from the page text
   beyond what the folded search handles, the value isn't boxed and the viewer lists it as "couldn't
   place on the page". That is the same evidence check the pipeline already makes, shown visually.
 - **Rendering costs CPU on the one task.** A render takes roughly 100 to 150 ms and about 65 kB per
   page for the sample documents. The LRU and browser caching keep repeat views cheap; the existing
   per-IP request limit bounds abuse.
-- **The main bundle stays under its previous size** (about 414 kB before gzip, against 443 kB
+- **The main bundle stays under its previous size** (about 405 kB before gzip, against 443 kB
   before the redesign), because the viewer, tour, playground and how-it-works pages are separate
   chunks.

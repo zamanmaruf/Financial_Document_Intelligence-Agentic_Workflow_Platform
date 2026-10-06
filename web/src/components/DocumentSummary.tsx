@@ -12,7 +12,7 @@ export function DocumentSummary({ doc }: { doc: Document }) {
       <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-line-strong bg-surface-raised text-ink-muted">
         <FileText className="size-[18px]" aria-hidden />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-40">
         <p className="truncate font-mono text-[13px] text-ink">{doc.filename}</p>
         <p className="text-xs text-ink-muted">
           {documentTypeText(doc.document_type)} · <span className="num">{doc.page_count}</span> page

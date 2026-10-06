@@ -216,14 +216,16 @@ def locate_text(
     """Find where snippets appear on the page, as boxes for highlighting.
 
     Exact matches are tried first, then a case- and whitespace-insensitive search. Scanned
-    pages have no text layer, so they return no boxes.
+    pages have no text layer; their boxes come from OCR when it is available on the server.
     """
     doc = owned_document(container, principal, document_id)
     queries = [LocateQuery(text=q.text, page=q.page) for q in body.queries]
-    outcomes = container.pages.locate(document_id, queries)
+    report = container.pages.locate(document_id, queries)
+    outcomes = report.outcomes
     return LocateResponse(
         document_id=document_id,
         has_text_layer=doc.metadata.has_text_layer,
+        positions=report.positions,
         results=[
             LocateResult(
                 text=o.query.text,

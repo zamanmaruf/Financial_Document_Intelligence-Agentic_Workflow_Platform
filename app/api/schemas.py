@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -184,7 +184,11 @@ class LocateResult(BaseModel):
 class LocateResponse(BaseModel):
     document_id: str
     has_text_layer: bool = Field(
-        description="False for scanned documents, which have no text positions to highlight"
+        description="False for scanned documents, whose PDF has no text positions"
+    )
+    positions: Literal["text_layer", "ocr", "none"] = Field(
+        description="Where the boxes came from: the PDF's text layer, text recognition (OCR) "
+        "of scanned pages, or nowhere (scanned pages with OCR unavailable)"
     )
     results: list[LocateResult]
 

@@ -49,6 +49,7 @@ export default defineConfig({
       DOCINTEL_DEMO_SECRET: randomBytes(32).toString("hex"),
       DOCINTEL_DEMO_COOKIE_SECURE: "false",
       DOCINTEL_DEMO_SESSIONS_PER_IP_HOUR: "1000",
+      DOCINTEL_DEMO_REQUESTS_PER_IP_MINUTE: "2000",
       DOCINTEL_DEMO_DOCS_PER_SESSION_DAY: "50",
       DOCINTEL_DATA_DIR: mkdtempSync(join(tmpdir(), "docintel-e2e-")),
       DOCINTEL_SITE_DIR: join(repoRoot, "web", "dist"),

@@ -1393,9 +1393,19 @@
             "type": "string"
           },
           "has_text_layer": {
-            "description": "False for scanned documents, which have no text positions to highlight",
+            "description": "False for scanned documents, whose PDF has no text positions",
             "title": "Has Text Layer",
             "type": "boolean"
+          },
+          "positions": {
+            "description": "Where the boxes came from: the PDF's text layer, text recognition (OCR) of scanned pages, or nowhere (scanned pages with OCR unavailable)",
+            "enum": [
+              "text_layer",
+              "ocr",
+              "none"
+            ],
+            "title": "Positions",
+            "type": "string"
           },
           "results": {
             "items": {
@@ -1408,6 +1418,7 @@
         "required": [
           "document_id",
           "has_text_layer",
+          "positions",
           "results"
         ],
         "title": "LocateResponse",
@@ -2895,7 +2906,7 @@
     },
     "/documents/{document_id}/locate": {
       "post": {
-        "description": "Find where snippets appear on the page, as boxes for highlighting.\n\nExact matches are tried first, then a case- and whitespace-insensitive search. Scanned\npages have no text layer, so they return no boxes.",
+        "description": "Find where snippets appear on the page, as boxes for highlighting.\n\nExact matches are tried first, then a case- and whitespace-insensitive search. Scanned\npages have no text layer; their boxes come from OCR when it is available on the server.",
         "operationId": "locate_text_documents__document_id__locate_post",
         "parameters": [
           {

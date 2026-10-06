@@ -44,6 +44,10 @@ test("the tour stage with the document viewer has no serious accessibility viola
   await page.getByRole("button", { name: /Amount due 5,238/ }).click();
   await expect(page.getByTestId("document-viewer").getByRole("img")).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
+
+  await page.getByRole("button", { name: "Expand to full screen" }).click();
+  await expect(page.getByRole("dialog").getByRole("img", { name: /Page 1 of 1/ })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
 });
 
 test("the not-found page has no serious accessibility violations", async ({ page }) => {

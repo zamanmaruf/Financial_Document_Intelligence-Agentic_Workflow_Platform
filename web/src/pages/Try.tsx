@@ -47,6 +47,7 @@ type Pane = "details" | "page";
 
 const GENERIC_QUESTIONS = ["What kind of document is this?", "What is the total amount?"];
 const WIDE = "(min-width: 1280px)";
+const LG = "(min-width: 1024px)";
 
 const KIND_ICON: Record<string, ReactNode> = {
   Invoice: <Receipt aria-hidden />,
@@ -361,6 +362,7 @@ export function Try() {
   const [version, setVersion] = useState(0);
   const [highlights, setHighlights] = useState<Record<string, Highlight[]>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const { status } = useDemoStatus();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -377,6 +379,7 @@ export function Try() {
     setShownDoc(docId);
     setHighlights({});
     setActiveId(null);
+    setExpanded(false);
   }
 
   const bump = () => setVersion((v) => v + 1);
@@ -452,7 +455,9 @@ export function Try() {
 
   const locate = useCallback((id: string) => {
     setActiveId(id);
-    if (!window.matchMedia(WIDE).matches) {
+    if (!window.matchMedia(LG).matches) {
+      setExpanded(true);
+    } else if (!window.matchMedia(WIDE).matches) {
       setPane("page");
       stageRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     }
@@ -498,8 +503,9 @@ export function Try() {
             <TabsTrigger value="results">
               <ListChecks aria-hidden className="max-sm:hidden" /> Results
             </TabsTrigger>
-            <TabsTrigger value="ask">
-              <MessageSquareText aria-hidden className="max-sm:hidden" /> Ask questions
+            <TabsTrigger value="ask" aria-label="Ask questions">
+              <MessageSquareText aria-hidden className="max-sm:hidden" /> <span className="sm:hidden">Ask</span>
+              <span className="max-sm:hidden">Ask questions</span>
             </TabsTrigger>
             <TabsTrigger value="review">
               <ClipboardCheck aria-hidden className="max-sm:hidden" /> Review
@@ -507,8 +513,9 @@ export function Try() {
                 <span className="size-1.5 rounded-full bg-warn" role="img" aria-label="needs attention" />
               )}
             </TabsTrigger>
-            <TabsTrigger value="audit">
-              <History aria-hidden className="max-sm:hidden" /> Audit trail
+            <TabsTrigger value="audit" aria-label="Audit trail">
+              <History aria-hidden className="max-sm:hidden" /> <span className="sm:hidden">Audit</span>
+              <span className="max-sm:hidden">Audit trail</span>
             </TabsTrigger>
           </TabsList>
           {doc.security_flags.includes("prompt_injection_suspected") && (
@@ -580,18 +587,27 @@ export function Try() {
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-2xl space-y-2">
-          <Eyebrow>Playground</Eyebrow>
-          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.03em] text-ink">Try it yourself</h1>
-          <p className="text-ink-muted">
-            Open a sample or upload a PDF. Processing usually takes 5 to 20 seconds; then explore the results, ask
-            questions and act as the reviewer.
+      {showWorkspace ? (
+        <header className="mb-5 flex min-w-0 items-baseline gap-3">
+          <h1 className="shrink-0 text-xl font-semibold tracking-[-0.02em] text-ink">Try it yourself</h1>
+          <p className="truncate text-sm text-ink-subtle max-sm:hidden">
+            Explore the results, ask questions and act as the reviewer.
           </p>
-        </div>
-      </header>
+        </header>
+      ) : (
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl space-y-2">
+            <Eyebrow>Playground</Eyebrow>
+            <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.03em] text-ink">Try it yourself</h1>
+            <p className="text-ink-muted">
+              Open a sample or upload a PDF. Processing usually takes 5 to 20 seconds; then explore the results, ask
+              questions and act as the reviewer.
+            </p>
+          </div>
+        </header>
+      )}
 
-      <div className="grid gap-8 lg:grid-cols-[232px_minmax(0,1fr)]">
+      <div className="grid gap-8 lg:grid-cols-[208px_minmax(0,1fr)]">
         <aside className="order-last space-y-6 lg:order-first lg:sticky lg:top-[4.5rem] lg:self-start">
           <DocumentList
             selected={docId}
@@ -648,7 +664,7 @@ export function Try() {
                   { value: "page", label: "Document page" },
                 ]}
               />
-              <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(400px,460px)]">
+              <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,440px)]">
                 <div className={cn("min-w-0 xl:sticky xl:top-[4.5rem] xl:block", pane === "page" ? "block" : "hidden")}>
                   {doc ? (
                     <DocumentViewer
@@ -659,6 +675,8 @@ export function Try() {
                       highlights={viewerHighlights}
                       activeId={activeId}
                       onActiveChange={setActiveId}
+                      expanded={expanded}
+                      onExpandedChange={setExpanded}
                       pageAreaClassName="xl:max-h-[calc(100dvh-12rem)]"
                     />
                   ) : (

@@ -52,6 +52,7 @@ from app.providers.factory import (
 from app.providers.llm.base import LLMProvider
 from app.providers.llm.mock import MockLLMProvider
 from app.providers.llm.mock_handlers import default_handlers
+from app.providers.ocr.tesseract import TesseractOCRExtractor
 from app.providers.storage.local import DocumentStore, LocalDocumentStore
 from app.providers.vectorstore.base import VectorStore
 from app.rag.service import RAGService, RAGSettings
@@ -267,6 +268,9 @@ def build_container(
         ),
         store=store,
         retention=RetentionRepository(sf),
-        pages=PageService(store),
+        pages=PageService(
+            store,
+            ocr=ocr_engine if isinstance(ocr_engine, TesseractOCRExtractor) else None,
+        ),
         budget=budget,
     )

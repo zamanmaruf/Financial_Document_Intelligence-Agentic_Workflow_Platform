@@ -52,7 +52,7 @@ def main() -> None:
                 for e in picked
                 if e.evidence
             ]
-            located = pages.locate(doc_id, queries)
+            located = pages.locate(doc_id, queries).outcomes
             image = pages.render(doc_id, 1)
         finally:
             container.close()

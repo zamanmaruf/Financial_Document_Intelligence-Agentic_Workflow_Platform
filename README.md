@@ -109,8 +109,10 @@ the real pipeline.
 The **document viewer** is the centre of the site. Pages are rendered to PNG on the server
 (`pypdfium2`), and the boxes come from a text search on the same page
 (`POST /documents/{id}/locate`), so they line up with the exact words. Scanned pages have no text
-layer, so they show without boxes and the viewer says why. Design notes are in
-[ADR-012](docs/adr/ADR-012-design-system-and-document-viewer.md).
+layer, so their boxes come from Tesseract's word positions instead, and the viewer says they may
+be slightly off. Zoom goes up to 3x, "Zoom to the selected box" (or a double-click) frames one
+value, and "Expand" opens the page full screen; on a phone, "Show on the page" opens that view
+already zoomed in. Design notes are in [ADR-012](docs/adr/ADR-012-design-system-and-document-viewer.md).
 
 Plain words throughout: confidence shows as "Very sure" or "Not sure", review reasons read
 "The document shows different values for the same figure", and dotted terms explain themselves on
@@ -350,7 +352,7 @@ same seam to inject fault-injecting mocks.
 | POST | `/documents/{id}/process/background` (returns 202; poll `GET /documents/{id}`) | analyst |
 | GET | `/documents/{id}/audit/verify` (fingerprints of one document's events) | viewer |
 | GET | `/documents/{id}/pages/{n}/image` (PNG render of one page; `ETag`, private cache) | viewer |
-| POST | `/documents/{id}/locate` (up to 50 text snippets → normalised boxes per page; no AI calls) | viewer |
+| POST | `/documents/{id}/locate` (up to 50 text snippets → normalised boxes per page, from the text layer or Tesseract OCR on scanned pages; no AI calls) | viewer |
 | POST | `/demo/session` · GET `/demo/status`, `/demo/samples`, `/demo/samples/{id}/file` · POST `/demo/samples/{id}` | demo mode only; visitors |
 
 In demo mode, a request with no API key uses the visitor's session cookie and is limited to the
@@ -1349,7 +1351,8 @@ More detail in the [architecture decision records](docs/adr).
   background jobs live in memory, and on AWS its data lives on the task's local disk (lost on
   each deploy). Its daily budget is a soft cap based on the app's own cost estimates.
 - OCR quality depends on Tesseract, and there is no layout or table model, so complex tables in
-  scanned documents may extract poorly.
+  scanned documents may extract poorly. Viewer boxes on scanned pages use Tesseract's word boxes,
+  so they are approximate, and they need Tesseract on the server (Textract isn't used for them).
 - Extraction retries happen at the model-call level (timeouts, backoff, one JSON-repair
   attempt); there is no field-level re-extraction loop.
 - The PDF active-content check is a byte-pattern heuristic, not a sandboxed parser.

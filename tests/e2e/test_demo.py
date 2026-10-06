@@ -337,6 +337,7 @@ def test_locate_returns_boxes_for_both_conflicting_values(client: TestClient) ->
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["has_text_layer"] is True
+    assert body["positions"] == "text_layer"
     first, second, folded, absent = body["results"]
     assert [m["page_number"] for m in first["matches"]] == [1]
     assert [m["page_number"] for m in second["matches"]] == [2]

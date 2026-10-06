@@ -1,11 +1,20 @@
-import { ChevronLeft, ChevronRight, Minus, Plus, RotateCcw, ScanLine } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ChevronLeft, ChevronRight, Focus, Maximize2, Minus, Plus, RotateCcw, ScanLine, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 
 import { api, ensureSession, type HighlightRect, type LocateQuery, type LocateResponse } from "@/api/client";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-import type { Highlight, HighlightTone } from "./highlights";
+import { chipPlacement, mergeLines, type Highlight, type HighlightTone } from "./highlights";
 
 export interface DocumentViewerProps {
   documentId: string;
@@ -21,6 +30,14 @@ export interface DocumentViewerProps {
   className?: string;
   /** Classes for the scrolling page area (set a height here). */
   pageAreaClassName?: string;
+  /** Controlled full-screen view; omit to let the viewer's Expand button manage it. */
+  expanded?: boolean;
+  onExpandedChange?: (open: boolean) => void;
+  /** Rendered inside the full-screen dialog: shows Close instead of Expand. */
+  inDialog?: boolean;
+  initialPage?: number;
+  /** Zoom to the selected box as soon as it is on screen. */
+  focusOnOpen?: boolean;
 }
 
 interface Placed {
@@ -28,7 +45,11 @@ interface Placed {
   rects: HighlightRect[];
 }
 
-const ZOOMS = [1, 1.25, 1.5, 2] as const;
+const ZOOMS = [1, 1.25, 1.5, 2, 3] as const;
+const MIN_ZOOM = ZOOMS[0];
+const MAX_ZOOM = ZOOMS[ZOOMS.length - 1] ?? 3;
+/** Zoom to box: the box spans this share of the visible width. */
+const FOCUS_SHARE = 0.55;
 const A4_RATIO = 841.89 / 595.28;
 
 const BOX: Record<HighlightTone, { idle: string; active: string; chip: string; dot: string }> = {
@@ -58,10 +79,12 @@ const BOX: Record<HighlightTone, { idle: string; active: string; chip: string; d
   },
 };
 
+type Positions = LocateResponse["positions"];
+
 interface LocateState {
   key: string;
   placed: Map<string, Placed[]>;
-  textLayer?: boolean;
+  positions?: Positions;
   failed?: boolean;
 }
 
@@ -101,26 +124,6 @@ function queriesFor(highlights: Highlight[]): LocateQuery[] {
   return out.slice(0, 50);
 }
 
-/** Merge boxes on the same line that touch or overlap (union highlights overlap a lot). */
-function mergeLines(rects: HighlightRect[]): HighlightRect[] {
-  const sorted = [...rects].sort((a, b) => a.y - b.y || a.x - b.x);
-  const out: HighlightRect[] = [];
-  for (const r of sorted) {
-    const prev = out[out.length - 1];
-    const sameLine = prev && Math.abs(prev.y - r.y) < Math.min(prev.height, r.height) * 0.5;
-    if (prev && sameLine && r.x <= prev.x + prev.width + 0.01) {
-      const right = Math.max(prev.x + prev.width, r.x + r.width);
-      const bottom = Math.max(prev.y + prev.height, r.y + r.height);
-      prev.y = Math.min(prev.y, r.y);
-      prev.width = right - prev.x;
-      prev.height = bottom - prev.y;
-    } else {
-      out.push({ ...r });
-    }
-  }
-  return out;
-}
-
 function placements(highlights: Highlight[], res: LocateResponse): Map<string, Placed[]> {
   const byKey = new Map(res.results.map((r) => [`${r.page ?? "*"}|${r.text}`, r.matches]));
   const out = new Map<string, Placed[]>();
@@ -144,37 +147,62 @@ function placements(highlights: Highlight[], res: LocateResponse): Map<string, P
   return out;
 }
 
+function unionBox(rects: HighlightRect[]): HighlightRect | null {
+  if (rects.length === 0) return null;
+  const left = Math.min(...rects.map((r) => r.x));
+  const top = Math.min(...rects.map((r) => r.y));
+  const right = Math.max(...rects.map((r) => r.x + r.width));
+  const bottom = Math.max(...rects.map((r) => r.y + r.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+const HIT_SLOP = 0.006;
+
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export default function DocumentViewer({
-  documentId,
-  pageCount,
-  filename,
-  hasTextLayer = true,
-  highlights: highlightsProp,
-  activeId: activeProp,
-  onActiveChange,
-  hideList = false,
-  className,
-  pageAreaClassName,
-}: DocumentViewerProps) {
+export default function DocumentViewer(props: DocumentViewerProps) {
+  const {
+    documentId,
+    pageCount,
+    filename,
+    hasTextLayer = true,
+    highlights: highlightsProp,
+    activeId: activeProp,
+    onActiveChange,
+    hideList = false,
+    className,
+    pageAreaClassName,
+    expanded: expandedProp,
+    onExpandedChange,
+    inDialog = false,
+    initialPage = 1,
+    focusOnOpen = false,
+  } = props;
   const highlights = useMemo(() => orderByTone(highlightsProp ?? []), [highlightsProp]);
-  const [page, setPage] = useState(1);
-  const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>(1);
+  const [page, setPage] = useState(() => Math.min(Math.max(1, initialPage), Math.max(1, pageCount)));
+  const [zoom, setZoom] = useState(1);
+  const [focusTick, setFocusTick] = useState(0);
   const [ratio, setRatio] = useState(A4_RATIO);
   const [loaded, setLoaded] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [located, setLocated] = useState<LocateState | null>(null);
   const [innerActive, setInnerActive] = useState<string | null>(null);
+  const [innerExpanded, setInnerExpanded] = useState(false);
+  const [expandedHere, setExpandedHere] = useState(false);
   const controlled = activeProp !== undefined;
   const activeId = controlled ? activeProp : innerActive;
+  const expanded = expandedProp ?? innerExpanded;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const focusedOnce = useRef(false);
+  // Opened from code (Expand, or a row's "show it on the page"), so there's no Radix trigger
+  // to return focus to: remember what had focus instead.
+  const returnFocus = useRef<HTMLElement | null>(null);
 
   const setActive = useCallback(
     (id: string | null) => {
@@ -184,6 +212,12 @@ export default function DocumentViewer({
     [controlled, onActiveChange],
   );
 
+  const setExpanded = (open: boolean, here = false) => {
+    setExpandedHere(open && here);
+    if (expandedProp === undefined) setInnerExpanded(open);
+    onExpandedChange?.(open);
+  };
+
   const queries = useMemo(() => queriesFor(highlights), [highlights]);
   const queryKey = JSON.stringify(queries);
 
@@ -192,7 +226,7 @@ export default function DocumentViewer({
     let alive = true;
     cachedLocate(documentId, queries)
       .then((res) => {
-        if (alive) setLocated({ key: queryKey, placed: placements(highlights, res), textLayer: res.has_text_layer });
+        if (alive) setLocated({ key: queryKey, placed: placements(highlights, res), positions: res.positions });
       })
       .catch(() => {
         if (alive) setLocated({ key: queryKey, placed: new Map(), failed: true });
@@ -207,7 +241,7 @@ export default function DocumentViewer({
   const current = located?.key === queryKey ? located : null;
   const placed: Map<string, Placed[]> | null = queries.length === 0 ? EMPTY : (current?.placed ?? null);
   const locateFailed = current?.failed ?? false;
-  const textLayer = current?.textLayer ?? hasTextLayer;
+  const positions: Positions | undefined = current?.positions ?? (hasTextLayer ? "text_layer" : undefined);
 
   // Selecting a highlight on another page turns to that page (state derived during render).
   const active = activeId ? placed?.get(activeId) : undefined;
@@ -218,23 +252,52 @@ export default function DocumentViewer({
     const target = active?.[0];
     if (target && !active.some((p) => p.page === page)) setPage(target.page);
   }
+  const activeOnPage = active?.find((p) => p.page === page)?.rects;
 
-  // Centre the selected highlight's first box on this page in the scroll area.
+  // Centre the selected highlight on this page in the scroll area.
   useEffect(() => {
-    const first = active?.find((p) => p.page === page)?.rects[0];
+    const box = activeOnPage ? unionBox(activeOnPage) : null;
     const scroller = scrollRef.current;
     const frame = frameRef.current;
-    if (!first || !scroller || !frame) return;
-    const top = frame.offsetTop + first.y * frame.offsetHeight;
-    const left = frame.offsetLeft + first.x * frame.offsetWidth;
+    if (!box || !scroller || !frame) return;
+    const top = frame.offsetTop + (box.y + box.height / 2) * frame.offsetHeight;
+    const left = frame.offsetLeft + (box.x + box.width / 2) * frame.offsetWidth;
     scroller.scrollTo({
       top: Math.max(0, top - scroller.clientHeight / 2),
-      left: Math.max(0, left - scroller.clientWidth / 3),
+      left: Math.max(0, left - scroller.clientWidth / 2),
       behavior: prefersReducedMotion() ? "auto" : "smooth",
     });
-  }, [active, page, zoom, loaded]);
+  }, [activeOnPage, zoom, loaded, focusTick]);
+
+  /** Zoom so the boxes span about half the visible width, then centre them. */
+  const zoomTo = useCallback(
+    (rects: HighlightRect[]) => {
+      const box = unionBox(rects);
+      const scroller = scrollRef.current;
+      const frame = frameRef.current;
+      if (!box || !scroller || !frame || box.width <= 0) return;
+      const style = getComputedStyle(scroller);
+      const visible = scroller.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const base = frame.offsetWidth / zoom;
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (FOCUS_SHARE * visible) / (box.width * base)));
+      setZoom(Math.round(next * 100) / 100);
+      setFocusTick((t) => t + 1);
+    },
+    [zoom],
+  );
 
   const src = `${api.pageImageUrl(documentId, page)}${retry ? `?r=${retry}` : ""}`;
+  const isLoaded = loaded === src;
+
+  // Opened from "show it on the page": zoom to the box once it is drawn.
+  useEffect(() => {
+    if (!focusOnOpen || focusedOnce.current || !isLoaded || !activeOnPage) return;
+    const id = requestAnimationFrame(() => {
+      focusedOnce.current = true;
+      zoomTo(activeOnPage);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [focusOnOpen, isLoaded, activeOnPage, zoomTo]);
 
   // Warm the browser cache for the other pages once the first one is on screen.
   useEffect(() => {
@@ -274,14 +337,39 @@ export default function DocumentViewer({
     target?.click();
   };
 
-  const zoomIndex = ZOOMS.indexOf(zoom);
-  const isLoaded = loaded === src;
+  // Double-clicking a box zooms to it. The first click re-keys the boxes, so no dblclick event
+  // reaches them: catch the second click on the frame and hit-test it instead.
+  const onFrameClick = (e: MouseEvent<HTMLDivElement>) => {
+    const frame = frameRef.current;
+    if (e.detail !== 2 || !frame || !isLoaded) return;
+    const r = frame.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    const inside = (b: HighlightRect) =>
+      x >= b.x - HIT_SLOP && x <= b.x + b.width + HIT_SLOP && y >= b.y - HIT_SLOP && y <= b.y + b.height + HIT_SLOP;
+    const hit = onPageBoxes.find(({ rects }) => rects.some(inside));
+    if (!hit) return;
+    setActive(hit.highlight.id);
+    zoomTo(hit.rects);
+  };
+
+  const zoomOut = () => setZoom((z) => [...ZOOMS].reverse().find((v) => v < z - 0.001) ?? MIN_ZOOM);
+  const zoomIn = () => setZoom((z) => ZOOMS.find((v) => v > z + 0.001) ?? MAX_ZOOM);
+
+  const footer = locateFailed
+    ? "Highlights couldn't be loaded right now. The page itself is still accurate."
+    : positions === "ocr"
+      ? "Boxes on scanned pages come from text recognition and may be slightly off."
+      : positions === "none"
+        ? "Highlighting isn't available for scanned pages."
+        : null;
+  const canPlace = positions === "text_layer" || positions === "ocr";
 
   return (
     <section
       aria-label={filename ? `Document viewer: ${filename}` : "Document viewer"}
       className={cn("flex min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card", className)}
-      data-testid="document-viewer"
+      data-testid={inDialog ? "document-viewer-expanded" : "document-viewer"}
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
         <div className="flex items-center gap-1" role="group" aria-label="Pages">
@@ -310,25 +398,13 @@ export default function DocumentViewer({
           </Button>
         </div>
         <div className="flex items-center gap-1" role="group" aria-label="Zoom">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => setZoom(ZOOMS[Math.max(0, zoomIndex - 1)] ?? 1)}
-            disabled={zoomIndex <= 0}
-            aria-label="Zoom out"
-          >
+          <Button variant="ghost" size="icon" className="size-8" onClick={zoomOut} disabled={zoom <= MIN_ZOOM} aria-label="Zoom out">
             <Minus />
           </Button>
-          <span className="num w-11 text-center text-xs text-ink-muted">{Math.round(zoom * 100)}%</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => setZoom(ZOOMS[Math.min(ZOOMS.length - 1, zoomIndex + 1)] ?? 1)}
-            disabled={zoomIndex >= ZOOMS.length - 1}
-            aria-label="Zoom in"
-          >
+          <span className="num w-11 text-center text-xs text-ink-muted" data-testid="zoom-level">
+            {Math.round(zoom * 100)}%
+          </span>
+          <Button variant="ghost" size="icon" className="size-8" onClick={zoomIn} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in">
             <Plus />
           </Button>
           <Button
@@ -340,6 +416,40 @@ export default function DocumentViewer({
           >
             Fit
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => activeOnPage && zoomTo(activeOnPage)}
+            disabled={!activeOnPage || !isLoaded}
+            aria-label="Zoom to the selected box"
+            title="Zoom to the selected box (or double-click a box)"
+          >
+            <Focus />
+          </Button>
+          {inDialog ? (
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="size-8" aria-label="Close full screen" title="Close (Esc)">
+                <X />
+              </Button>
+            </DialogClose>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={(e) => {
+                // Safari doesn't focus buttons on click, so name the one to come back to
+                returnFocus.current = e.currentTarget;
+                setExpanded(true, true);
+              }}
+              aria-label="Expand to full screen"
+              aria-haspopup="dialog"
+              title="Expand to full screen"
+            >
+              <Maximize2 />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -378,7 +488,7 @@ export default function DocumentViewer({
                   );
                 })}
           </div>
-          {placed !== null && missing.length > 0 && textLayer && !locateFailed && (
+          {placed !== null && missing.length > 0 && canPlace && !locateFailed && (
             <p className="mt-1.5 text-xs text-ink-subtle">
               Couldn&apos;t place {missing.map((m) => m.label).join(", ")} on the page.
             </p>
@@ -399,6 +509,7 @@ export default function DocumentViewer({
       >
         <div
           ref={frameRef}
+          onClick={onFrameClick}
           className="relative mx-auto overflow-hidden rounded-[3px] bg-white shadow-[0_0_0_1px_rgb(255_255_255/0.06),0_18px_50px_-12px_rgb(0_0_0/0.8)]"
           style={{ width: `calc(min(100%, 860px) * ${zoom})`, aspectRatio: `1 / ${ratio}` }}
         >
@@ -442,8 +553,8 @@ export default function DocumentViewer({
             onPageBoxes.map(({ highlight, rects }) => {
               const tone = BOX[highlight.tone ?? "brand"];
               const isActive = highlight.id === activeId;
-              const first = rects[0];
               const showChip = isActive || (highlight.tone === "danger" && !activeId);
+              const chip = chipPlacement(rects);
               return (
                 <div
                   key={`${highlight.id}-${isActive ? "on" : "off"}`}
@@ -454,7 +565,9 @@ export default function DocumentViewer({
                   {rects.map((r, i) => (
                     <div
                       key={i}
-                      onClick={() => setActive(isActive ? null : highlight.id)}
+                      onClick={(e) => {
+                        if (e.detail < 2) setActive(isActive ? null : highlight.id);
+                      }}
                       className={cn(
                         "absolute cursor-pointer rounded-[3px] border-[1.5px] transition-[background-color,box-shadow,border-color] duration-200",
                         isActive ? cn(tone.active, "animate-draw") : tone.idle,
@@ -469,19 +582,24 @@ export default function DocumentViewer({
                       }}
                     />
                   ))}
-                  {showChip && first && (
+                  {showChip && chip && (
                     <span
+                      data-chip={chip.side}
                       className={cn(
-                        "pointer-events-none absolute z-10 animate-fade-in whitespace-nowrap rounded-[5px] px-1.5 py-0.5 text-[11px] font-semibold leading-4 shadow-md",
-                        first.y > 0.04 && "-translate-y-full",
+                        "pointer-events-none absolute z-10 animate-fade-in overflow-hidden text-ellipsis whitespace-nowrap rounded-[5px] px-1.5 py-0.5 text-[11px] font-semibold leading-4 shadow-md",
+                        chip.side === "right" && "-translate-y-1/2",
+                        chip.side === "above" && "-translate-y-full",
                         tone.chip,
                       )}
                       style={{
-                        left: `${Math.min(first.x - 0.004, 0.62) * 100}%`,
+                        left: `${chip.left * 100}%`,
+                        maxWidth: `${chip.maxWidth * 100}%`,
                         top:
-                          first.y > 0.04
-                            ? `calc(${(first.y - 0.003) * 100}% - 4px)`
-                            : `calc(${(first.y + first.height + 0.003) * 100}% + 4px)`,
+                          chip.side === "above"
+                            ? `calc(${chip.top * 100}% - 4px)`
+                            : chip.side === "below"
+                              ? `calc(${chip.top * 100}% + 4px)`
+                              : `${chip.top * 100}%`,
                       }}
                     >
                       {highlight.label}
@@ -494,13 +612,48 @@ export default function DocumentViewer({
         </div>
       </div>
 
-      {(!textLayer || locateFailed) && highlights.length > 0 && (
+      {footer && highlights.length > 0 && (
         <p className="flex items-center gap-2 border-t border-line px-3 py-2 text-xs text-ink-muted">
           <ScanLine className="size-3.5 shrink-0" aria-hidden />
-          {locateFailed
-            ? "Highlights couldn't be loaded right now. The page itself is still accurate."
-            : "Highlighting isn't available for scanned pages."}
+          {footer}
         </p>
+      )}
+
+      {!inDialog && (
+        <Dialog open={expanded} onOpenChange={(open) => setExpanded(open)}>
+          <DialogContent
+            className="inset-0 flex flex-col sm:inset-4 lg:inset-6"
+            onOpenAutoFocus={() => {
+              const el = document.activeElement;
+              if (el instanceof HTMLElement && el !== document.body) returnFocus.current = el;
+            }}
+            onCloseAutoFocus={(e) => {
+              const el = returnFocus.current;
+              returnFocus.current = null;
+              if (el?.isConnected) {
+                e.preventDefault();
+                el.focus();
+              }
+            }}
+          >
+            <DialogTitle className="sr-only">{filename ?? "Document"}, full screen</DialogTitle>
+            <DialogDescription className="sr-only">
+              The page with its highlights. Press Escape to close.
+            </DialogDescription>
+            {expanded && (
+              <DocumentViewer
+                {...props}
+                activeId={activeId}
+                onActiveChange={setActive}
+                inDialog
+                initialPage={page}
+                focusOnOpen={!expandedHere}
+                className="h-full rounded-none border-0 sm:rounded-xl sm:border"
+                pageAreaClassName="max-h-none"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       )}
     </section>
   );

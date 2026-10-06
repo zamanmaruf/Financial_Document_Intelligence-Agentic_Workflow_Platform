@@ -282,7 +282,7 @@ export interface paths {
          * @description Find where snippets appear on the page, as boxes for highlighting.
          *
          *     Exact matches are tried first, then a case- and whitespace-insensitive search. Scanned
-         *     pages have no text layer, so they return no boxes.
+         *     pages have no text layer; their boxes come from OCR when it is available on the server.
          */
         post: operations["locate_text_documents__document_id__locate_post"];
         delete?: never;
@@ -1051,9 +1051,15 @@ export interface components {
             document_id: string;
             /**
              * Has Text Layer
-             * @description False for scanned documents, which have no text positions to highlight
+             * @description False for scanned documents, whose PDF has no text positions
              */
             has_text_layer: boolean;
+            /**
+             * Positions
+             * @description Where the boxes came from: the PDF's text layer, text recognition (OCR) of scanned pages, or nowhere (scanned pages with OCR unavailable)
+             * @enum {string}
+             */
+            positions: "text_layer" | "ocr" | "none";
             /** Results */
             results: components["schemas"]["LocateResult"][];
         };

@@ -232,6 +232,7 @@ export function Tour() {
   const [highlights, setHighlights] = useState<Record<string, Highlight[]>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showDoc, setShowDoc] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { toast } = useToast();
 
@@ -245,6 +246,7 @@ export function Tour() {
     setShownStep(step);
     setHighlights({});
     setActiveId(null);
+    setExpanded(false);
   }
 
   const go = useCallback(
@@ -276,7 +278,7 @@ export function Tour() {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true'], [role='group'], [role='tablist'], [role='region']")) return;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], [role='group'], [role='tablist'], [role='region'], [role='dialog']")) return;
       if (e.key === "ArrowRight" && canGoNext) go(step + 1);
       else if (e.key === "ArrowLeft" && step > 0) go(step - 1);
       else if (e.key === "Enter" && canGoNext && (target === document.body || target === headingRef.current)) {
@@ -307,7 +309,8 @@ export function Tour() {
   const viewerHighlights = useMemo(() => Object.values(highlights).flat(), [highlights]);
   const locate = useCallback((id: string) => {
     setActiveId(id);
-    setShowDoc(true);
+    if (window.matchMedia("(min-width: 1024px)").matches) setShowDoc(true);
+    else setExpanded(true);
   }, []);
 
   const current: Step = STEPS[step] ?? { title: "", time: "", stage: null, narration: null };
@@ -424,7 +427,7 @@ export function Tour() {
           key={step}
           className={cn(
             "animate-fade-in",
-            current.stage ? "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]" : "mx-auto max-w-3xl",
+            current.stage ? "grid items-start gap-6 xl:grid-cols-[minmax(340px,0.85fr)_minmax(0,1.3fr)]" : "mx-auto max-w-3xl",
           )}
         >
           <div className="min-w-0 space-y-5" aria-live="polite">
@@ -599,6 +602,8 @@ export function Tour() {
                     highlights={viewerHighlights}
                     activeId={activeId}
                     onActiveChange={setActiveId}
+                    expanded={expanded}
+                    onExpandedChange={setExpanded}
                     pageAreaClassName="xl:max-h-[calc(100dvh-12.5rem)]"
                   />
                 ) : (

@@ -87,6 +87,46 @@ test("selecting a value boxes its evidence on the page, and the boxes are keyboa
   await expect(viewer.locator('[data-highlight="field:customer"][data-active] > div').first()).toBeVisible();
 });
 
+test("the page zooms to the selected box and opens full screen with the same selection", async ({ page }) => {
+  await page.goto("/tour");
+  await page.getByRole("button", { name: "Process the invoice" }).click();
+  await expect(page.getByText("Ready: all checks passed")).toBeVisible();
+  await next(page);
+
+  const viewer = page.getByTestId("document-viewer");
+  await expect(viewer.getByRole("img", { name: /Page 1 of 1/ })).toBeVisible();
+  const zoomToBox = viewer.getByRole("button", { name: "Zoom to the selected box" });
+  const zoomLevel = viewer.getByTestId("zoom-level");
+  await expect(zoomToBox).toBeDisabled();
+
+  await page.getByRole("button", { name: /Amount due 5,238/ }).click();
+  await zoomToBox.click();
+  await expect(zoomLevel).not.toHaveText("100%");
+  const box = viewer.locator('[data-highlight="field:amount_due"][data-active] > div').first();
+  await expect(box).toBeInViewport();
+
+  // Fit, then double-click the box to zoom back in on it.
+  await viewer.getByRole("button", { name: "Fit" }).click();
+  await expect(zoomLevel).toHaveText("100%");
+  await box.dblclick();
+  await expect(zoomLevel).not.toHaveText("100%");
+  await viewer.getByRole("button", { name: "Fit" }).click();
+
+  // Full screen: same boxes and selection; Esc closes and returns focus to the button.
+  const expand = viewer.getByRole("button", { name: "Expand to full screen" });
+  await expand.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const big = dialog.getByTestId("document-viewer-expanded");
+  await expect(big.locator('[data-highlight="field:amount_due"][data-active] > div').first()).toBeVisible();
+  await highlightChip(page, /Vendor/).click();
+  await expect(big.locator('[data-highlight="field:vendor"][data-active] > div').first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(expand).toBeFocused();
+  await expect(highlightChip(page, /Vendor/)).toHaveAttribute("aria-pressed", "true");
+});
+
 test("arrow keys move between tour steps once a step's action is done", async ({ page }) => {
   await page.goto("/tour");
   const heading = page.getByRole("heading", { level: 1 });

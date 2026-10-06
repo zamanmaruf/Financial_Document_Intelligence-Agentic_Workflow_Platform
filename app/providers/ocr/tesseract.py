@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import shutil
+from typing import TYPE_CHECKING
 
 from app.domain.enums import TextExtractionMethod
 from app.domain.models import ExtractedText, PageText
+
+if TYPE_CHECKING:
+    from PIL import Image
+
+    from app.documents.pages import OcrWord
 
 
 class TesseractOCRExtractor:
@@ -35,3 +41,32 @@ class TesseractOCRExtractor:
         finally:
             pdf.close()
         return ExtractedText(pages=pages, method=self.method)
+
+    def words(self, image: Image.Image) -> list[OcrWord]:
+        """Recognised words with their boxes, for highlighting text on scanned pages."""
+        import pytesseract
+
+        from app.documents.pages import OcrWord, Rect
+
+        data = pytesseract.image_to_data(
+            image, lang=self._lang, config="--psm 6", output_type=pytesseract.Output.DICT
+        )
+        width, height = image.size
+        out: list[OcrWord] = []
+        for i, raw in enumerate(data["text"]):
+            text = str(raw).strip()
+            if not text or float(data["conf"][i]) < 0:
+                continue
+            left, top = int(data["left"][i]), int(data["top"][i])
+            w, h = int(data["width"][i]), int(data["height"][i])
+            if w <= 0 or h <= 0:
+                continue
+            line = (int(data["block_num"][i]), int(data["par_num"][i]), int(data["line_num"][i]))
+            rect = Rect(
+                x=round(left / width, 5),
+                y=round(top / height, 5),
+                width=round(w / width, 5),
+                height=round(h / height, 5),
+            )
+            out.append(OcrWord(text=text, line=line, rect=rect))
+        return out
