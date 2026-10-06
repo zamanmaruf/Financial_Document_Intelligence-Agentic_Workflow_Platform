@@ -730,9 +730,14 @@ Categories: [Python](#python) · [FastAPI](#fastapi) · [AWS Bedrock](#aws-bedro
 ### Q64. How does LLM-as-judge fit in?
 - **Concise:** An optional second opinion on groundedness in evaluation.
 - **Senior:** With `eval_use_llm_judge`, a versioned judge prompt scores each answer's support;
-  it complements the deterministic check, which misses paraphrase errors. Judge calls are tagged
-  `operation="judge"` and excluded from drift statistics. Judges must be calibrated against human
-  labels and never judge their own outputs without scrutiny.
+  it complements the deterministic check, which misses paraphrase errors. The judge reads the full
+  cited chunks, and `eval_judge_provider` lets another vendor's model judge (live: Claude's answers
+  judged by gpt-4.1-mini, 1.00 on 20 answers). Judge calls are tagged `operation="judge"` and
+  excluded from drift statistics.
+- **How do you know it isn't a rubber stamp?** `scripts/judge_calibration.py` feeds it corrupted
+  copies of real answers. It flagged 20/20 changed numbers, 12/12 negations and 20/20 appended
+  claims, and none of the originals; the lexical check missed every negation. That is synthetic
+  corruption, not agreement with human graders, which is still the next step.
 - **Follow-up:** Why not use the judge in production?
 - **Follow-up answer:** Cost and latency double, and the judge can be wrong or manipulated too.
   Deterministic checks are cheap and explainable; the judge is better as an offline or sampled

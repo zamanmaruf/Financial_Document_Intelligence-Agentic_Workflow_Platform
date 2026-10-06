@@ -50,6 +50,8 @@ SUMMARY_KEYS = {
         "correct_refusal_rate",
         "false_refusal_rate",
         "llm_judge_groundedness",
+        "llm_judge_cases",
+        "llm_judge_errors",
     ],
     "workflow": ["routing_accuracy", "review_precision", "review_recall"],
 }
@@ -79,6 +81,8 @@ def main() -> int:
         f"embeddings={result.config['embedding_model']}  rag_engine={result.config['rag_engine']}  "
         f"vector_store={result.config['vector_store']}"
     )
+    if result.config["llm_judge"]:
+        print(f"judge={result.config['llm_judge_model']}")
     for category, keys in SUMMARY_KEYS.items():
         values = result.metrics.get(category, {})
         cells = [f"{k}={values[k]}" for k in keys if k in values]

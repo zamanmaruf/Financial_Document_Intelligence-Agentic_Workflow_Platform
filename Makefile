@@ -1,6 +1,7 @@
 .PHONY: install dev test test-unit test-integration test-e2e lint format typecheck eval gate \
         drift drift-baseline baseline data docker docker-run demo lock clean check \
-        web web-dev web-check web-e2e demo-site deploy deploy-cd-bootstrap smoke-live ocr-compare
+        web web-dev web-check web-e2e demo-site deploy deploy-cd-bootstrap smoke-live ocr-compare \
+        judge-calibration
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -60,6 +61,10 @@ drift-baseline:
 OCR_ENGINES ?= tesseract
 ocr-compare:
 	$(PY) scripts/ocr_compare.py --engines $(OCR_ENGINES) --output reports/ocr_compare.json
+
+# Uses the providers in the environment; set DOCINTEL_EVAL_JUDGE_PROVIDER to judge with another one
+judge-calibration:
+	$(PY) scripts/judge_calibration.py --output reports/judge_calibration.json
 
 data:
 	$(PY) scripts/generate_sample_data.py

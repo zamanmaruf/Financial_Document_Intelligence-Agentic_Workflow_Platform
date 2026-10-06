@@ -1,0 +1,763 @@
+{
+  "description": "Live LLM-as-judge run (6 October 2026): Claude Haiku 4.5 on Bedrock answers with Titan retrieval; Azure gpt-4.1-mini judges each answer against the full text of the chunks it cites. The calibration section feeds the same judge deliberately corrupted copies of the live answers.",
+  "evaluation": {
+    "run_id": "eval_1d6abd6307f94625b7c0ac8c63615c90",
+    "created_at": "2026-10-06T04:22:51.583128Z",
+    "config": {
+      "app_env": "local",
+      "llm_provider": "bedrock",
+      "embedding_provider": "bedrock",
+      "vector_store": "memory",
+      "rag_engine": "native",
+      "ocr_provider": "none",
+      "chunk_size": 600,
+      "chunk_overlap": 80,
+      "retrieval_top_k": 4,
+      "retrieval_min_score": 0.12,
+      "retrieval_min_score_scoped": 0.03,
+      "classification_min_confidence": 0.7,
+      "extraction_min_confidence": 0.6,
+      "answer_min_confidence": 0.55,
+      "groundedness_min": 0.8,
+      "auth_enabled": false,
+      "demo_mode": false,
+      "run_name": "live-claude-judged-by-gpt41mini",
+      "llm_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "embedding_model": "amazon.titan-embed-text-v2:0",
+      "prompts": {
+        "classification.document_type": "1.1.0",
+        "extraction.financial_entities": "1.2.0",
+        "ocr.page_transcription": "1.0.0",
+        "rag.grounded_answer": "1.0.0",
+        "validation.groundedness_judge": "1.0.0"
+      },
+      "llm_judge": true,
+      "llm_judge_model": "azure_openai:gpt-4.1-mini-1"
+    },
+    "gate_passed": true,
+    "gate_failures": [],
+    "duration_s": 162.924,
+    "is_mock": false,
+    "metrics": {
+      "answers": {
+        "n_cases": 27,
+        "completeness": 1.0,
+        "groundedness": 1.0,
+        "citation_correctness": 1.0,
+        "answer_relevance_lexical": 0.7333,
+        "unsupported_statement_rate": 0.0,
+        "schema_validity": 1.0,
+        "correct_refusal_rate": 1.0,
+        "false_refusal_rate": 0.0,
+        "llm_judge_groundedness": 1.0,
+        "llm_judge_cases": 20,
+        "llm_judge_errors": 0
+      },
+      "retrieval": {
+        "n_queries": 24,
+        "k": 4,
+        "precision_at_k": 0.2604,
+        "recall_at_k": 1.0,
+        "hit_rate": 1.0,
+        "mrr": 0.9792,
+        "document_hit_rate": 1.0,
+        "context_relevance_lexical": 0.5283,
+        "engine": "native"
+      },
+      "timing": {
+        "retrieval_latency_ms_mean": 150.5068,
+        "retrieval_latency_ms_p95": 194.483
+      }
+    },
+    "answer_failures": []
+  },
+  "calibration": {
+    "answer_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "judge_model": "azure_openai:gpt-4.1-mini-1",
+    "flag_below": 1.0,
+    "summary": {
+      "original": {
+        "n": 20,
+        "judge_errors": 0,
+        "judge_mean": 1.0,
+        "judge_flag_rate": 0.0,
+        "lexical_mean": 1.0,
+        "lexical_flag_rate": 0.0
+      },
+      "changed_number": {
+        "n": 20,
+        "judge_errors": 0,
+        "judge_mean": 0.0585,
+        "judge_flag_rate": 1.0,
+        "lexical_mean": 0.05,
+        "lexical_flag_rate": 0.95
+      },
+      "negated": {
+        "n": 12,
+        "judge_errors": 0,
+        "judge_mean": 0.0,
+        "judge_flag_rate": 1.0,
+        "lexical_mean": 1.0,
+        "lexical_flag_rate": 0.0
+      },
+      "unsupported_claim": {
+        "n": 20,
+        "judge_errors": 0,
+        "judge_mean": 0.3835,
+        "judge_flag_rate": 1.0,
+        "lexical_mean": 0.075,
+        "lexical_flag_rate": 1.0
+      }
+    },
+    "rows": [
+      {
+        "id": "a01",
+        "variant": "original",
+        "answer": "Net income was $1,532,600",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer's statement that net income was $1,532,600 is directly supported by the consolidated income statement in the context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a01",
+        "variant": "changed_number",
+        "answer": "Net income was $1,532,603",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The net income stated in the answer is $1,532,603, which does not match the net income of $1,532,600 provided in the context.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a01",
+        "variant": "negated",
+        "answer": "Net income was not $1,532,600",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that the net income is $1,532,600, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a01",
+        "variant": "unsupported_claim",
+        "answer": "Net income was $1,532,600 The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The net income figure of $1,532,600 is supported by the context, but there is no information about the auditor restating the figures or finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a02",
+        "variant": "original",
+        "answer": "The operating profit was EUR 1,351,450",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer correctly states the operating profit as EUR 1,351,450, which matches the figure in the provided context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a02",
+        "variant": "changed_number",
+        "answer": "The operating profit was EUR 1,351,453",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The operating profit stated in the answer is EUR 1,351,453, which does not match the operating profit of EUR 1,351,450 given in the context.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a02",
+        "variant": "negated",
+        "answer": "The operating profit was not EUR 1,351,450",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that the operating profit was EUR 1,351,450, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a02",
+        "variant": "unsupported_claim",
+        "answer": "The operating profit was EUR 1,351,450 The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The operating profit figure is supported by the context, but there is no mention of any restatement or errors found by the auditor.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a03",
+        "variant": "original",
+        "answer": "Total liabilities are 7,900,000 USD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The context explicitly states that total liabilities are 7,900,000 USD.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a03",
+        "variant": "changed_number",
+        "answer": "Total liabilities are 7,900,003 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states total liabilities as 7,900,000 USD, but the answer incorrectly states 7,900,003 USD.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a03",
+        "variant": "negated",
+        "answer": "Total liabilities are not 7,900,000 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that total liabilities are 7,900,000 USD, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a03",
+        "variant": "unsupported_claim",
+        "answer": "Total liabilities are 7,900,000 USD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context supports the statement that total liabilities are 7,900,000 USD, but there is no mention of any restatement or errors found by the auditor.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a04",
+        "variant": "original",
+        "answer": "The company holds cash of GBP 2,340,500 as at 30 June 2025.",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The statement that the company holds cash of GBP 2,340,500 as at 30 June 2025 is directly supported by the context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a04",
+        "variant": "changed_number",
+        "answer": "The company holds cash of GBP 2,340,503 as at 30 June 2025.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the cash amount as GBP 2,340,500, which does not match the GBP 2,340,503 stated in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a04",
+        "variant": "unsupported_claim",
+        "answer": "The company holds cash of GBP 2,340,500 as at 30 June 2025. The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The statement about the company holding cash of GBP 2,340,500 as at 30 June 2025 is supported, but there is no information in the context about the auditor restating the figures after finding errors.",
+        "lexical_score": 0.5
+      },
+      {
+        "id": "a05",
+        "variant": "original",
+        "answer": "5,238.00 USD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The amount due of 5,238.00 USD is explicitly stated in the invoice context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a05",
+        "variant": "changed_number",
+        "answer": "5,238.03 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The invoice states the amount due as 5,238.00 USD, not 5,238.03 USD as given in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a05",
+        "variant": "unsupported_claim",
+        "answer": "5,238.00 USD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context provides the amount due as 5,238.00 USD but does not mention any auditor restatement or errors found.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a06",
+        "variant": "original",
+        "answer": "EUR 2,520.00",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer correctly states the VAT amount of EUR 2,520.00 as shown in the invoice context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a06",
+        "variant": "changed_number",
+        "answer": "EUR 2,520.03",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the VAT amount as EUR 2,520.00, not EUR 2,520.03 as given in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a06",
+        "variant": "unsupported_claim",
+        "answer": "EUR 2,520.00 The auditor later restated these figures after finding errors.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the VAT amount as EUR 2,520.00 but does not mention any restatement or errors found by an auditor.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a07",
+        "variant": "original",
+        "answer": "The closing balance is 277,539.57 USD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The closing balance of 277,539.57 USD is explicitly stated in the account statement.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a07",
+        "variant": "changed_number",
+        "answer": "The closing balance is 277,539.50 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The closing balance stated in the answer (277,539.50 USD) does not match the closing balance in the context (277,539.57 USD).",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a07",
+        "variant": "negated",
+        "answer": "The closing balance is not 277,539.57 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states the closing balance as 277,539.57 USD, directly contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a07",
+        "variant": "unsupported_claim",
+        "answer": "The closing balance is 277,539.57 USD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The closing balance of 277,539.57 USD is supported by the context, but there is no mention of the auditor restating the figures after finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a08",
+        "variant": "original",
+        "answer": "Total deposits: 640,250.00 GBP",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer correctly states the total deposits amount of 640,250.00 GBP as shown in the statement of account.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a08",
+        "variant": "changed_number",
+        "answer": "Total deposits: 640,250.03 GBP",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The total deposits amount in the answer (640,250.03 GBP) does not match the amount in the context (640,250.00 GBP).",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a08",
+        "variant": "unsupported_claim",
+        "answer": "Total deposits: 640,250.00 GBP The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The statement 'Total deposits: 640,250.00 GBP' is supported by the context, but the claim that 'The auditor later restated these figures after finding errors' is not mentioned or supported by the context.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a09",
+        "variant": "original",
+        "answer": "The NAV per share is 24.87 USD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer states that the NAV per share is 24.87 USD, which is directly supported by the context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a09",
+        "variant": "changed_number",
+        "answer": "The NAV per share is 24.80 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The NAV per share stated in the answer (24.80 USD) does not match the NAV per share in the context (24.87 USD).",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a09",
+        "variant": "negated",
+        "answer": "The NAV per share is not 24.87 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that the NAV per share is 24.87 USD, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a09",
+        "variant": "unsupported_claim",
+        "answer": "The NAV per share is 24.87 USD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The NAV per share of 24.87 USD is supported by the context, but there is no mention of any auditor restatement or errors found.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a10",
+        "variant": "original",
+        "answer": "The annual management fee is 0.40%",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The context explicitly states that the annual management fee is 0.40%.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a10",
+        "variant": "changed_number",
+        "answer": "The annual management fee is 0.43%",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the annual management fee is 0.40%, not 0.43% as claimed in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a10",
+        "variant": "negated",
+        "answer": "The annual management fee is not 0.40%",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that the annual management fee is 0.40%, contradicting the answer.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a10",
+        "variant": "unsupported_claim",
+        "answer": "The annual management fee is 0.40% The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The annual management fee of 0.40% is supported by the context, but there is no mention of the auditor restating figures or finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a11",
+        "variant": "original",
+        "answer": "The YTD return of the Summit Emerging Markets Fund is -3.2%",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer correctly states the YTD return of the Summit Emerging Markets Fund as -3.2%, which is explicitly mentioned in the context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a11",
+        "variant": "changed_number",
+        "answer": "The YTD return of the Summit Emerging Markets Fund is -3.5%",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the YTD return is -3.2%, whereas the answer claims it is -3.5%, which is not supported by the provided information.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a11",
+        "variant": "negated",
+        "answer": "The YTD return of the Summit Emerging Markets Fund is not -3.2%",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that the YTD return of the Summit Emerging Markets Fund is -3.2%, directly contradicting the answer.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a11",
+        "variant": "unsupported_claim",
+        "answer": "The YTD return of the Summit Emerging Markets Fund is -3.2% The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The YTD return of -3.2% is supported by the context, but there is no mention of the auditor restating figures or finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a12",
+        "variant": "original",
+        "answer": "1,780.00 USD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The amount due is explicitly stated as 1,780.00 USD in the invoice.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a12",
+        "variant": "changed_number",
+        "answer": "1,780.03 USD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The invoice states the amount due as 1,780.00 USD, not 1,780.03 USD as given in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a12",
+        "variant": "unsupported_claim",
+        "answer": "1,780.00 USD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the amount due is 1,780.00 USD but does not mention any auditor restatement or errors found.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a13",
+        "variant": "original",
+        "answer": "Revenue in FY2025 was AUD 15,200,000",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The context explicitly states that the revenue for FY2025 was AUD 15,200,000.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a13",
+        "variant": "changed_number",
+        "answer": "Revenue in FY2028 was AUD 15,200,000",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context provides revenue data only for FY2025 and FY2024, with no information about FY2028.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a13",
+        "variant": "negated",
+        "answer": "Revenue in FY2025 was not AUD 15,200,000",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that revenue in FY2025 was AUD 15,200,000, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a13",
+        "variant": "unsupported_claim",
+        "answer": "Revenue in FY2025 was AUD 15,200,000 The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The revenue figure for FY2025 is supported by the context, but there is no mention of the auditor restating the figures after finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a14",
+        "variant": "original",
+        "answer": "The net loss was (1,204,000) USD, or a loss of $1,204,000.",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The net loss of (1,204,000) USD is explicitly stated in the provided financial statement.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a14",
+        "variant": "changed_number",
+        "answer": "The net loss was (1,204,003) USD, or a loss of $1,204,000.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The net loss of (1,204,000) USD is supported by the context, but the figure (1,204,003) USD is not mentioned and thus unsupported.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a14",
+        "variant": "negated",
+        "answer": "The net loss was not (1,204,000) USD, or a loss of $1,204,000.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states the net loss as (1,204,000) USD, directly contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a14",
+        "variant": "unsupported_claim",
+        "answer": "The net loss was (1,204,000) USD, or a loss of $1,204,000. The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The net loss figure is supported by the context, but there is no mention of the auditor restating the figures or finding errors.",
+        "lexical_score": 0.5
+      },
+      {
+        "id": "a15",
+        "variant": "original",
+        "answer": "Total stockholders' equity is 17,250,000 CAD, consisting of Common stock of 9,000,000 and Retained earnings of 8,250,000.",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer accurately reflects the values for total stockholders' equity, common stock, and retained earnings as stated in the provided balance sheet context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a15",
+        "variant": "changed_number",
+        "answer": "Total stockholders' equity is 17,250,003 CAD, consisting of Common stock of 9,000,000 and Retained earnings of 8,250,000.",
+        "judge_score": 0.67,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The total stockholders' equity and its components are correctly stated except for the total stockholders' equity amount, which is given as 17,250,003 instead of 17,250,000 as in the context.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a15",
+        "variant": "negated",
+        "answer": "Total stockholders' equity is not 17,250,000 CAD, consisting of Common stock of 9,000,000 and Retained earnings of 8,250,000.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The answer incorrectly states that total stockholders' equity is not 17,250,000 CAD, while the context confirms it is exactly 17,250,000, consisting of Common stock of 9,000,000 and Retained earnings of 8,250,000.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a15",
+        "variant": "unsupported_claim",
+        "answer": "Total stockholders' equity is 17,250,000 CAD, consisting of Common stock of 9,000,000 and Retained earnings of 8,250,000. The auditor later restated these figures after finding errors.",
+        "judge_score": 0.67,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context supports the figures for total stockholders' equity, common stock, and retained earnings, but there is no mention of the auditor restating these figures after finding errors.",
+        "lexical_score": 0.5
+      },
+      {
+        "id": "a16",
+        "variant": "original",
+        "answer": "12.435,50 EUR",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The amount due of 12.435,50 EUR is explicitly stated in the invoice context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a16",
+        "variant": "changed_number",
+        "answer": "12.438,50 EUR",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The amount due stated in the context is 12.435,50 EUR, which does not match the answer of 12.438,50 EUR.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a16",
+        "variant": "unsupported_claim",
+        "answer": "12.435,50 EUR The auditor later restated these figures after finding errors.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context provides the amount due as 12.435,50 EUR but does not mention any auditor restatement or errors found.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a17",
+        "variant": "original",
+        "answer": "Balance due: 2,113.25 CAD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The balance due of 2,113.25 CAD is explicitly stated in the invoice context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a17",
+        "variant": "changed_number",
+        "answer": "Balance due: 2,113.28 CAD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The balance due stated in the answer is 2,113.28 CAD, which does not match the balance due of 2,113.25 CAD shown in the context.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a17",
+        "variant": "unsupported_claim",
+        "answer": "Balance due: 2,113.25 CAD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The balance due of 2,113.25 CAD is supported by the invoice, but there is no mention in the context of the auditor restating these figures after finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a18",
+        "variant": "original",
+        "answer": "11,817.65",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer '11,817.65' matches the 'Balance carried forward' value in the provided context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a18",
+        "variant": "changed_number",
+        "answer": "11,817.68",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The answer states the balance as 11,817.68, but the context specifies the balance carried forward as 11,817.65.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a18",
+        "variant": "unsupported_claim",
+        "answer": "11,817.65 The auditor later restated these figures after finding errors.",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context only provides the balance carried forward as 11,817.65 and does not mention any auditor restatement or errors found.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a19",
+        "variant": "original",
+        "answer": "The ongoing charges figure is 0.62%",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The answer correctly states the ongoing charges figure as 0.62%, which matches the information in the context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a19",
+        "variant": "changed_number",
+        "answer": "The ongoing charges figure is 0.65%",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context states the ongoing charges figure is 0.62%, not 0.65% as claimed in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a19",
+        "variant": "negated",
+        "answer": "The ongoing charges figure is not 0.62%",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states that the ongoing charges figure is 0.62%, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a19",
+        "variant": "unsupported_claim",
+        "answer": "The ongoing charges figure is 0.62% The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The ongoing charges figure of 0.62% is supported by the context, but there is no mention of the auditor restating these figures or finding errors.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a20",
+        "variant": "original",
+        "answer": "The closing balance on the Woodgrove Bank statement is 67,050.00 CAD",
+        "judge_score": 1.0,
+        "judge_verdict": "supported",
+        "judge_rationale": "The closing balance of 67,050.00 CAD is explicitly stated in the bank statement context.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a20",
+        "variant": "changed_number",
+        "answer": "The closing balance on the Woodgrove Bank statement is 67,050.03 CAD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The closing balance on the statement is 67,050.00 CAD, not 67,050.03 CAD as stated in the answer.",
+        "lexical_score": 0.0
+      },
+      {
+        "id": "a20",
+        "variant": "negated",
+        "answer": "The closing balance on the Woodgrove Bank statement is not 67,050.00 CAD",
+        "judge_score": 0.0,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The context explicitly states the closing balance is 67,050.00 CAD, contradicting the answer's claim.",
+        "lexical_score": 1.0
+      },
+      {
+        "id": "a20",
+        "variant": "unsupported_claim",
+        "answer": "The closing balance on the Woodgrove Bank statement is 67,050.00 CAD The auditor later restated these figures after finding errors.",
+        "judge_score": 0.5,
+        "judge_verdict": "unsupported",
+        "judge_rationale": "The closing balance of 67,050.00 CAD is supported by the context, but there is no mention of the auditor restating the figures after finding errors.",
+        "lexical_score": 0.0
+      }
+    ]
+  }
+}

@@ -84,6 +84,7 @@ make docker-run  # docker compose up --build → http://127.0.0.1:8000/health
 | AWS deployment (`deploy/aws/`: CloudFormation, deploy script, runbook) | **Deployed** on 3 October 2026 at [d1cpufi9ii8q1y.cloudfront.net](https://d1cpufi9ii8q1y.cloudfront.net): one Fargate task calling Claude Haiku 4.5 and Titan Text Embeddings V2 (semantic search) through its IAM task role, with no stored keys. Deployed by the GitHub Actions workflow and checked after each deploy with `make smoke-live` |
 | GitHub Actions CI/CD | **Implemented and in use**: CI (quality, web, browser e2e, infrastructure lint and Docker jobs) on every push and pull request; after CI passes on `main`, a deploy workflow waits for approval, signs in to AWS through OIDC (no stored keys), deploys and runs the live smoke tests |
 | Encryption at rest, TLS inside the app, SSO, tracing, WAF | **Documented considerations only** ([Security & privacy](#21-security--privacy)) |
+| LLM-as-judge evaluation (`EVAL_USE_LLM_JUDGE`, `EVAL_JUDGE_PROVIDER`) | **Implemented and verified live**: Claude's answers judged by gpt-4.1-mini against the full text of the cited chunks, and checked on deliberately corrupted answers ([results](#llm-as-judge-live-run-and-calibration)). Evaluation only, never in the request path |
 | Fine-tuning | **Design document only** ([`docs/fine-tuning-pathway.md`](docs/fine-tuning-pathway.md)) |
 
 ---
@@ -602,6 +603,7 @@ The container runs as a non-root user with a read-only root filesystem, a tmpfs 
 | `make web-e2e` | Playwright browser tests against a demo-mode API it starts itself |
 | `make deploy` | build, push and deploy the public demo to AWS ([runbook](deploy/aws/RUNBOOK.md)) |
 | `make smoke-live` | smoke tests against the deployed site with live AI, then read-only AWS checks |
+| `make judge-calibration` | check that the LLM judge flags deliberately broken answers, next to the lexical check |
 | `make ocr-compare` | score OCR engines on the scanned samples (`OCR_ENGINES=tesseract,bedrock_vision,azure_vision` for the cloud engines) |
 
 ### Configuration reference
@@ -638,6 +640,7 @@ combinations fail at start-up with a clear error.
 | `AZURE_OPENAI_REASONING_MODEL` | `false` | set `true` for GPT-5 / o-series deployments (see [Azure](#12-azure-openai-configuration)) |
 | `AZURE_OPENAI_REASONING_EFFORT` / `_MAX_TOKENS` | `low` / `8192` | reasoning effort and output budget (reasoning tokens count against it) |
 | `EVAL_USE_LLM_JUDGE` | `false` | add LLM-as-judge groundedness to evaluations |
+| `EVAL_JUDGE_PROVIDER` | (unset) | `mock` · `bedrock` · `azure_openai`: judge with a different provider from the one that answered; unset means the answer model judges itself |
 
 ### Troubleshooting
 
@@ -986,8 +989,12 @@ or they never reach processing. Integration tests cover them instead.
 **Quality gate.** `make gate` applies the absolute thresholds in `evals/thresholds.yaml` and fails
 if any regression-tracked metric drops more than 0.03 below `evals/baseline.json`. Setting
 `DOCINTEL_EVAL_USE_LLM_JUDGE=true` adds an LLM-as-judge groundedness score
-(`validation.groundedness_judge` prompt) alongside the deterministic one; judge calls are
-excluded from drift statistics.
+(`validation.groundedness_judge` prompt) alongside the deterministic one. The judge reads the
+full text of every chunk the answer cites, not the one-sentence snippet, and
+`DOCINTEL_EVAL_JUDGE_PROVIDER` lets a different provider judge (so a model does not grade its
+own answers). Answers scored below 1.0 are listed in the report's failures with the judge's
+rationale; failed judge calls are counted in `llm_judge_errors` rather than scored as 0. Judge
+calls are tagged `operation="judge"` and excluded from drift statistics.
 
 Current mock-mode results (deterministic):
 
@@ -1175,6 +1182,44 @@ Same corpus, prompts, thresholds and quality gate; only `DOCINTEL_RAG_ENGINE` ch
   question passed. Temperature 0 does not make hosted models fully repeatable.
 - **LlamaIndex costs about 1 ms per query** offline. The live latency gap is within network
   variation; the Titan embedding call dominates both.
+
+#### LLM-as-judge: live run and calibration
+
+On 6 October 2026 Claude Haiku 4.5 on Bedrock answered the 27 evaluation questions with Titan
+retrieval, and Azure OpenAI `gpt-4.1-mini` judged each answer against the full text of the
+chunks it cited. A judge that approves everything would also score 1.0, so
+`scripts/judge_calibration.py` then gave the same judge deliberately broken copies of Claude's
+answers: one number changed, the claim negated ("was" becomes "was not"), or an unsupported
+sentence appended. The lexical groundedness check scored the same texts. Both reports are in
+[`evals/results/llm_judge_2026-10-06.json`](evals/results/llm_judge_2026-10-06.json).
+
+| Evaluation run | Value |
+|---|---|
+| Judge groundedness (20 answered questions) | 1.00, no judge errors |
+| Deterministic groundedness / completeness / citation correctness | 1.00 / 1.00 / 1.00 |
+| Correct refusals (7 unanswerable or adversarial questions) | 1.00 |
+| Quality gate | passed |
+
+| Calibration: answers given to the judge | Count | Flagged by the judge | Flagged by the lexical check |
+|---|---|---|---|
+| Claude's original answers | 20 | 0 | 0 |
+| One number changed | 20 | 20 | 19 |
+| Claim negated | 12 | 12 | 0 |
+| Unsupported sentence appended | 20 | 20 | 20 |
+
+- **The judge is not a rubber stamp.** It flagged every broken answer and none of the originals.
+- **The two checks fail differently.** The lexical check misses negation entirely: "Net income
+  was not $1,532,600" uses only words and numbers from the source. It also missed a changed
+  fiscal year ("FY2025" to "FY2028") because a number glued to letters is not read as a number,
+  and one unfamiliar word still leaves the sentence above the 60% word-support threshold. The judge caught both. The judge
+  is slower and costs money per call, so the lexical check stays in the request path and the
+  judge is used in evaluation.
+- **What this does not show.** The corruptions are simple and generated by rules, there is one
+  run, and the judge has not been compared with human graders. Subtle errors (a right number for
+  the wrong period, a misleading summary) need human-labelled cases. In this run Claude's
+  native-engine answers all passed the deterministic check; in the earlier
+  [engine comparison](#retrieval-engine-comparison-native-vs-llamaindex) one did not, which is
+  the same run-to-run variation noted there.
 
 #### OCR comparison
 

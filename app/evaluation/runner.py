@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.core.clock import new_id
 from app.core.config import Settings, VectorStoreName
 from app.core.errors import DocIntelError
+from app.core.resilience import RetryPolicy
 from app.core.text import contains_normalized
 from app.domain.enums import DocumentType
 from app.domain.models import EvaluationResult, RAGAnswer
@@ -40,11 +41,15 @@ from app.evaluation.metrics import (
     retrieval_query_metrics,
     values_normalized_match,
 )
+from app.observability.cost import CostEstimator
+from app.providers.factory import build_llm_provider
 from app.services.container import Container, build_container
+from app.services.model_gateway import ModelGateway
 
 logger = logging.getLogger(__name__)
 
 MAX_FAILURE_EXAMPLES = 25
+JUDGE_FLAG_BELOW = 1.0  # judge scores under this are listed in the failures with the rationale
 
 
 class JudgeLLMOutput(BaseModel):
@@ -61,6 +66,7 @@ class EvaluationRunner:
     def __init__(self, settings: Settings, run_name: str | None = None) -> None:
         self._settings = settings
         self._run_name = run_name
+        self._judge_model: str | None = None
 
     def _isolated_settings(self, data_dir: Path) -> Settings:
         return self._settings.model_copy(
@@ -96,6 +102,7 @@ class EvaluationRunner:
                 "embedding_model": container.embedder.model_name,
                 "prompts": container.prompts.active_versions(),
                 "llm_judge": self._settings.eval_use_llm_judge,
+                "llm_judge_model": self._judge_model,
             },
             metrics=metrics,
             gate_passed=gate.passed,
@@ -202,7 +209,12 @@ class EvaluationRunner:
             ),
             "extraction": extraction_metrics(field_items),
             "retrieval": retrieval,
-            "answers": self._answers(c, doc_ids, failures["answers"]),
+            "answers": self._answers(
+                c,
+                doc_ids,
+                failures["answers"],
+                self.judge_gateway(c) if self._settings.eval_use_llm_judge else None,
+            ),
             "workflow": workflow,
             # wall-clock numbers vary between runs, so they are kept apart from quality metrics;
             # retrieval latency includes the query embedding call
@@ -274,7 +286,11 @@ class EvaluationRunner:
         }, latencies
 
     def _answers(
-        self, c: Container, doc_ids: dict[str, str], failures: list[Any]
+        self,
+        c: Container,
+        doc_ids: dict[str, str],
+        failures: list[Any],
+        judge: ModelGateway | None,
     ) -> dict[str, Any]:
         cases = _read_jsonl(self._settings.evals_dir / "datasets" / "answers.jsonl")
         completeness: list[float] = []
@@ -286,6 +302,7 @@ class EvaluationRunner:
         correct_refusals: list[float] = []
         false_refusals: list[float] = []
         judge_scores: list[float] = []
+        judge_errors = 0
         for case in cases:
             doc_id = doc_ids.get(case["target_file"]) if case["target_file"] else None
             scope_doc = doc_id if case["scope"] == "document" else None
@@ -334,7 +351,7 @@ class EvaluationRunner:
                 1.0
                 if cit.document_id == doc_id
                 and any(
-                    fact_present(f, self._chunk_text(c, cit.document_id, cit.chunk_id))
+                    fact_present(f, self.chunk_text(c, cit.document_id, cit.chunk_id))
                     for f in case["expected_facts"]
                 )
                 else 0.0
@@ -350,8 +367,22 @@ class EvaluationRunner:
                         "expected": case["expected_facts"],
                     }
                 )
-            if self._settings.eval_use_llm_judge:
-                judge_scores.append(self._judge(c, answer))
+            if judge is not None:
+                verdict = self.judge_answer(c, judge, answer)
+                if verdict is None:
+                    judge_errors += 1
+                else:
+                    judge_scores.append(verdict.score)
+                    if verdict.score < JUDGE_FLAG_BELOW:
+                        failures.append(
+                            {
+                                "id": case["id"],
+                                "issue": "judge_flagged",
+                                "judge_score": verdict.score,
+                                "answer": answer.answer,
+                                "rationale": verdict.rationale,
+                            }
+                        )
 
         result: dict[str, Any] = {
             "n_cases": len(cases),
@@ -366,12 +397,39 @@ class EvaluationRunner:
             "correct_refusal_rate": mean(correct_refusals),
             "false_refusal_rate": mean(false_refusals),
         }
-        if judge_scores:
-            result["llm_judge_groundedness"] = mean(judge_scores)
+        if judge is not None:
+            if judge_scores:
+                result["llm_judge_groundedness"] = mean(judge_scores)
+            result["llm_judge_cases"] = len(judge_scores)
+            result["llm_judge_errors"] = judge_errors
         return result
 
+    def judge_gateway(self, c: Container) -> ModelGateway:
+        """The answer model's own gateway, or one for ``eval_judge_provider`` when it differs."""
+        judge_provider = self._settings.eval_judge_provider
+        if judge_provider is None or judge_provider == c.settings.llm_provider:
+            gateway = c.gateway
+        else:
+            s = c.settings.model_copy(update={"llm_provider": judge_provider})
+            gateway = ModelGateway(
+                provider=build_llm_provider(s, c.registry),
+                prompts=c.prompts,
+                invocations=c.invocations,
+                metrics=c.metrics,
+                cost=CostEstimator.load(s.config_dir),
+                temperature=0.0,
+                max_tokens=s.llm_max_tokens,
+                timeout_s=s.llm_timeout_s,
+                retry_policy=RetryPolicy(
+                    max_retries=s.llm_max_retries, backoff_s=s.llm_retry_backoff_s
+                ),
+                json_repair_attempts=s.llm_json_repair_attempts,
+            )
+        self._judge_model = f"{gateway.provider.provider_name}:{gateway.provider.model_name}"
+        return gateway
+
     @staticmethod
-    def _chunk_text(c: Container, document_id: str, chunk_id: str) -> str:
+    def chunk_text(c: Container, document_id: str, chunk_id: str) -> str:
         text = c.texts.get(document_id)
         if text is None:
             return ""
@@ -389,16 +447,26 @@ class EvaluationRunner:
             return 0.0
         return 1.0
 
-    @staticmethod
-    def _judge(c: Container, answer: RAGAnswer) -> float:
-        context = "\n\n".join(cit.text_snippet for cit in answer.citations)
+    def judge_answer(
+        self, c: Container, judge: ModelGateway, answer: RAGAnswer
+    ) -> JudgeLLMOutput | None:
+        """Score the answer against the full text of every chunk it cites (None on failure)."""
+        blocks: list[str] = []
+        seen: set[str] = set()
+        for cit in answer.citations:
+            if cit.chunk_id in seen:
+                continue
+            seen.add(cit.chunk_id)
+            text = self.chunk_text(c, cit.document_id, cit.chunk_id) or cit.text_snippet
+            blocks.append(f"[chunk_id={cit.chunk_id} | page={cit.page_number}]\n{text}")
         try:
-            res = c.gateway.invoke(
+            res = judge.invoke(
                 "validation.groundedness_judge",
-                render_vars={"answer": answer.answer, "context": context},
+                render_vars={"answer": answer.answer, "context": "\n\n".join(blocks)},
                 schema=JudgeLLMOutput,
                 operation="judge",
             )
-        except DocIntelError:
-            return 0.0
-        return res.output.score
+        except DocIntelError as exc:
+            logger.warning("judge call failed: %s", exc.error_type)
+            return None
+        return res.output

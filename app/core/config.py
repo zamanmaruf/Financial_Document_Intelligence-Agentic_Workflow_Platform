@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     sample_data_dir: Path = PROJECT_ROOT / "sample_data"
     evals_dir: Path = PROJECT_ROOT / "evals"
     eval_use_llm_judge: bool = False
+    # Judge with another provider than the one answering, so a model doesn't grade its own
+    # answers (uses that provider's model settings, e.g. AZURE_OPENAI_CHAT_DEPLOYMENT).
+    eval_judge_provider: LLMProviderName | None = None
     drift_baseline_path: Path = PROJECT_ROOT / "evals" / "drift_baseline.json"
     max_upload_mb: float = 20.0
     max_pages: int = 200
